@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { loginUser } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { jwtDecode } from "jwt-decode";
 
 const Login = () => {
     const navigate = useNavigate();
@@ -15,26 +16,35 @@ const Login = () => {
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            const res = await loginUser(formData);
-            login(res.data.token, res.data.user);
-            toast.success('Login Successfully!');
+    e.preventDefault();
+    setLoading(true);
+    try {
+        const res = await loginUser(formData);
+        // const { token, user } = res.data;
+        // console.log("Login Response:", res.data);
+        // login(token, user);
 
-            // Role ke hisaab se redirect
-            const role = res.data.user.role;
-            if (role === 'job_seeker') navigate('/seeker/dashboard');
-            else if (role === 'job_provider') navigate('/provider/dashboard');
-            else if (role === 'admin') navigate('/admin/dashboard');
+       const { token } = res.data;
 
-        } catch (error) {
-            toast.error(error.response?.data?.message || 'Login failed');
-        } finally {
-            setLoading(false);
-        }
-    };
+const decoded = jwtDecode(token);
+console.log(decoded); // { id: 5, role: 'job_seeker', ... }
 
+login(token, decoded);
+
+        toast.success('Login Successfully!');
+
+        setTimeout(() => {
+            if (decoded.role === 'job_seeker') navigate('/seeker/dashboard');
+            else if (decoded.role === 'job_provider') navigate('/provider/dashboard');
+            else if (decoded.role === 'admin') navigate('/admin/dashboard');
+        }, 500);
+
+    } catch (error) {
+        toast.error(error.response?.data?.message || 'Login failed');
+    } finally {
+        setLoading(false);
+    }
+};
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
