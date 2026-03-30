@@ -275,7 +275,7 @@ const SeekerDashboard = () => {
                         {/* Profile Skills */}
                         {profile?.skills && (
                             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                                <h2 className="font-bold text-gray-800 mb-3">Tumhari Skills</h2>
+                                <h2 className="font-bold text-gray-800 mb-3">your Skills</h2>
                                 <div className="flex flex-wrap gap-2">
                                     {profile.skills.split(',').map((skill, i) => (
                                         <span key={i} className="bg-blue-50 text-blue-700 text-xs px-3 py-1 rounded-full">

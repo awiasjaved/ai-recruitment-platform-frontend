@@ -40,7 +40,7 @@ const Assessment = () => {
             setSkills(skillsRes.data.skills);
             setMyAssessments(assessRes.data.assessments);
         } catch (error) {
-            toast.error('Data load nahi hua');
+            toast.error('Failed to load data');
         } finally {
             setLoading(false);
         }
@@ -48,7 +48,7 @@ const Assessment = () => {
 
     const handleStartAssessment = async () => {
         if (!selectedSkill) {
-            toast.error('Skill select karo pehle');
+            toast.error('Please select a skill first');
             return;
         }
         setLoading(true);
@@ -59,7 +59,7 @@ const Assessment = () => {
             setTimeLeft(1800);
             setStep('test');
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Assessment shuru nahi hui');
+            toast.error(error.response?.data?.message || 'Failed to start assessment');
         } finally {
             setLoading(false);
         }
@@ -79,7 +79,7 @@ const Assessment = () => {
             setStep('result');
             loadData();
         } catch (error) {
-            toast.error('Submit nahi hua');
+            toast.error('Failed to submit assessment');
         } finally {
             setSubmitting(false);
         }
@@ -128,37 +128,37 @@ const Assessment = () => {
                         {/* Header */}
                         <div className="bg-gradient-to-r from-green-600 to-green-400 rounded-2xl p-6 text-white mb-6">
                             <h1 className="text-2xl font-bold">Skill Assessment 📝</h1>
-                            <p className="text-green-100 mt-1">Apni skills test karo aur score hasil karo</p>
+                            <p className="text-green-100 mt-1">Test your skills and get certified.</p>
                         </div>
 
                         {/* Start New Test Button */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-                            <h2 className="text-lg font-bold text-gray-800 mb-4">Naya Test Shuru Karo</h2>
+                            <h2 className="text-lg font-bold text-gray-800 mb-4">Start New Test</h2>
                             <p className="text-gray-500 text-sm mb-4">
-                                Har test mein 7 questions hote hain — MCQ aur Subjective dono.
-                                30 minute ka time hota hai.
+                                Each test contains 7 questions — including both MCQs and subjective questions.
+                                You have 30 minutes to complete it.
                             </p>
                             <button
                                 onClick={() => setStep('select')}
                                 className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition"
                             >
-                                + Naya Test Shuru Karo
+                                + Start New Test
                             </button>
                         </div>
 
                         {/* Past Assessments */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                            <h2 className="text-lg font-bold text-gray-800 mb-4">Purane Tests</h2>
+                            <h2 className="text-lg font-bold text-gray-800 mb-4">Previous Tests</h2>
 
                             {myAssessments.length === 0 ? (
                                 <div className="text-center py-8">
                                     <div className="text-5xl mb-3">📝</div>
-                                    <p className="text-gray-400">Abhi koi test nahi diya</p>
+                                    <p className="text-gray-400">No tests taken yet.</p>
                                     <button
                                         onClick={() => setStep('select')}
                                         className="mt-3 text-green-600 font-semibold hover:underline"
                                     >
-                                        Pehla test do
+                                        Take your first test
                                     </button>
                                 </div>
                             ) : (
@@ -168,7 +168,9 @@ const Assessment = () => {
                                             <div className="flex items-center justify-between">
                                                 <div>
                                                     <h3 className="font-semibold text-gray-800 capitalize">{a.skill_domain}</h3>
-                                                    <p className="text-gray-500 text-sm">{new Date(a.taken_at).toLocaleDateString('ur-PK')}</p>
+                                                    <p className="text-gray-500 text-sm">
+                                                        {new Date(a.taken_at).toLocaleDateString('en-US')}
+                                                    </p>
                                                 </div>
                                                 <div className="text-right">
                                                     <div className={`text-2xl font-bold ${getScoreColor(a.score)}`}>
@@ -208,10 +210,10 @@ const Assessment = () => {
                             onClick={() => setStep('list')}
                             className="text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1"
                         >
-                            ← Wapas jao
+                            ← Back
                         </button>
-                        <h2 className="text-xl font-bold text-gray-800 mb-2">Skill Select Karo</h2>
-                        <p className="text-gray-500 text-sm mb-6">Jis skill ka test dena hai woh select karo</p>
+                        <h2 className="text-xl font-bold text-gray-800 mb-2">Select a Skill</h2>
+                        <p className="text-gray-500 text-sm mb-6">Choose the skill for which you want to take the assessment.</p>
 
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
                             {skills.map(skill => (
@@ -238,12 +240,12 @@ const Assessment = () => {
 
                         {selectedSkill && (
                             <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
-                                <h3 className="font-semibold text-green-800">Test ke baare mein:</h3>
+                                <h3 className="font-semibold text-green-800">About the test:</h3>
                                 <ul className="text-green-700 text-sm mt-2 space-y-1">
-                                    <li>✅ 7 questions honge</li>
-                                    <li>✅ MCQ aur Subjective dono</li>
-                                    <li>✅ 30 minute ka time</li>
-                                    <li>✅ Har baar naye questions</li>
+                                    <li>✅ There will be 7 questions.</li>
+                                    <li>✅ Both MCQs and Subjective questions.</li>
+                                    <li>✅ 30 minute time limit.</li>
+                                    <li>✅ New questions each time.</li>
                                 </ul>
                             </div>
                         )}
@@ -253,7 +255,7 @@ const Assessment = () => {
                             disabled={!selectedSkill || loading}
                             className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50"
                         >
-                            {loading ? 'Shuru ho raha hai...' : 'Test Shuru Karo 🚀'}
+                            {loading ? 'Starting...' : 'Start Test 🚀'}
                         </button>
                     </div>
                 )}
@@ -266,7 +268,7 @@ const Assessment = () => {
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
                                 <span className="text-gray-500 text-sm">
-                                    Question {currentQ + 1} / {currentAssessment.questions.length}
+                                    Question {currentQ + 1} of {currentAssessment.questions.length}
                                 </span>
                             </div>
                             <div className={`font-bold text-lg px-4 py-1 rounded-full ${
@@ -294,7 +296,7 @@ const Assessment = () => {
                                     ? 'bg-blue-100 text-blue-700'
                                     : 'bg-purple-100 text-purple-700'
                             }`}>
-                                {currentAssessment.questions[currentQ].type === 'mcq' ? 'MCQ' : 'Subjective'}
+                                {currentAssessment.questions[currentQ].type === 'mcq' ? 'Multiple Choice' : 'Subjective'}
                                 {' — '}
                                 {currentAssessment.questions[currentQ].marks} marks
                             </span>
@@ -329,7 +331,7 @@ const Assessment = () => {
                                     value={answers[currentQ] || ''}
                                     onChange={(e) => handleAnswer(e.target.value)}
                                     rows={5}
-                                    placeholder="Apna jawab yahan likho..."
+                                    placeholder="Write your answer here..."
                                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
                                 />
                             </div>
@@ -342,7 +344,7 @@ const Assessment = () => {
                                 disabled={currentQ === 0}
                                 className="px-5 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition disabled:opacity-40"
                             >
-                                ← Pehla
+                                ← Previous
                             </button>
 
                             <div className="flex gap-1">
@@ -366,7 +368,7 @@ const Assessment = () => {
                                     onClick={() => setCurrentQ(q => q + 1)}
                                     className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
                                 >
-                                    Agla →
+                                    Next →
                                 </button>
                             ) : (
                                 <button
@@ -374,7 +376,7 @@ const Assessment = () => {
                                     disabled={submitting}
                                     className="px-5 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
                                 >
-                                    {submitting ? 'Submit...' : 'Submit ✓'}
+                                    {submitting ? 'Submitting...' : 'Submit Test ✓'}
                                 </button>
                             )}
                         </div>
@@ -391,7 +393,7 @@ const Assessment = () => {
                              result.score >= 40 ? '📚' : '💪'}
                         </div>
 
-                        <h2 className="text-2xl font-bold text-gray-800 mb-2">Test Complete!</h2>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2">Test Completed!</h2>
                         <p className="text-gray-500 mb-6">{result.result_message}</p>
 
                         <div className={`text-6xl font-bold mb-2 ${getScoreColor(result.score)}`}>
@@ -412,7 +414,7 @@ const Assessment = () => {
                         <div className="grid grid-cols-2 gap-4 max-w-xs mx-auto mb-8">
                             <div className="bg-gray-50 rounded-xl p-3">
                                 <div className="font-bold text-gray-800">{result.obtained_marks}</div>
-                                <div className="text-gray-500 text-xs">Marks Mile</div>
+                                <div className="text-gray-500 text-xs">Marks Obtained</div>
                             </div>
                             <div className="bg-gray-50 rounded-xl p-3">
                                 <div className="font-bold text-gray-800">{result.total_marks}</div>
@@ -431,7 +433,7 @@ const Assessment = () => {
                             }}
                             className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition"
                         >
-                            Dobara Test Do
+                            Take Another Test
                         </button>
                     </div>
                 )}

@@ -204,36 +204,36 @@ const Interview = () => {
                     <>
                         <div className="bg-gradient-to-r from-purple-700 to-purple-500 rounded-2xl p-6 text-white mb-6">
                             <h1 className="text-2xl font-bold">AI Interview 🎥</h1>
-                            <p className="text-purple-100 mt-1">Webcam interview do aur apni skills sabit karo</p>
+                            <p className="text-purple-100 mt-1">Take a webcam interview and prove your skills.</p>
                         </div>
 
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-                            <h2 className="text-lg font-bold text-gray-800 mb-3">Nai Interview Shuru Karo</h2>
+                            <h2 className="text-lg font-bold text-gray-800 mb-3">Start New Interview</h2>
                             <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-4">
-                                <h3 className="font-semibold text-purple-800 mb-2">Tayari karo:</h3>
+                                <h3 className="font-semibold text-purple-800 mb-2">Prepare:</h3>
                                 <ul className="text-purple-700 text-sm space-y-1">
-                                    <li>✅ Shant jagah par baitho</li>
-                                    <li>✅ Webcam aur microphone ready rakho</li>
-                                    <li>✅ Saaf light mein baitho</li>
-                                    <li>✅ Har sawaal ka jawab 2 minute mein do</li>
-                                    <li>✅ Seedha camera ki taraf dekho</li>
+                                    <li>✅ Find a quiet place to sit</li>
+                                    <li>✅ Make sure your webcam and microphone are ready</li>
+                                    <li>✅ Sit in good lighting</li>
+                                    <li>✅ Answer each question within 2 minutes</li>
+                                    <li>✅ Look straight at the camera.</li>
                                 </ul>
                             </div>
                             <button
                                 onClick={() => setStep('setup')}
                                 className="bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-800 transition"
                             >
-                                + Nai Interview Shuru Karo
+                                + Start New Interview
                             </button>
                         </div>
 
                         {/* Past Interviews */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                            <h2 className="text-lg font-bold text-gray-800 mb-4">Purani Interviews</h2>
+                            <h2 className="text-lg font-bold text-gray-800 mb-4">Previous Interviews</h2>
                             {myInterviews.length === 0 ? (
                                 <div className="text-center py-8">
                                     <div className="text-5xl mb-3">🎥</div>
-                                    <p className="text-gray-400">Abhi koi interview nahi di</p>
+                                    <p className="text-gray-400">No interviews taken yet.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -269,7 +269,7 @@ const Interview = () => {
                 {step === 'setup' && (
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                         <button onClick={() => { setStep('list'); stopWebcam(); }} className="text-gray-500 hover:text-gray-700 mb-4">
-                            ← Wapas jao
+                            ← Back
                         </button>
                         <h2 className="text-xl font-bold text-gray-800 mb-6">Interview Setup</h2>
 
@@ -300,7 +300,7 @@ const Interview = () => {
                                             : 'bg-green-100 text-green-700 hover:bg-green-200'
                                     }`}
                                 >
-                                    {webcamOn ? '🔴 Webcam Band Karo' : '🟢 Webcam On Karo'}
+                                    {webcamOn ? '🔴 Closed Webcam ' : '🟢 Open Webcam'}
                                 </button>
                             </div>
 
@@ -329,7 +329,7 @@ const Interview = () => {
                                 <div className={`p-3 rounded-lg text-sm mb-4 ${
                                     webcamOn ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
                                 }`}>
-                                    {webcamOn ? '✅ Webcam ready hai' : '❌ Webcam on karo pehle'}
+                                    {webcamOn ? '✅ Webcam Connected' : '❌ First on Webcam'}
                                 </div>
 
                                 <button
@@ -337,7 +337,7 @@ const Interview = () => {
                                     disabled={!webcamOn || loading}
                                     className="w-full bg-purple-700 text-white py-3 rounded-lg font-semibold hover:bg-purple-800 transition disabled:opacity-50"
                                 >
-                                    {loading ? 'Shuru ho raha hai...' : '🎬 Interview Shuru Karo'}
+                                    {loading ? 'Starting Interview...' : '🎬 Start Interview'}
                                 </button>
                             </div>
                         </div>
