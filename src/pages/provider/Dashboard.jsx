@@ -100,7 +100,7 @@ const ProviderDashboard = () => {
                             </div>
                             <div>
                                 <h1 className="text-2xl font-bold">{profile?.company_name || 'Company Name'}</h1>
-                                <p className="text-indigo-100">{profile?.industry || 'Industry add karo'}</p>
+                                <p className="text-indigo-100">{profile?.industry || 'Add industry.'}</p>
                                 <p className="text-indigo-200 text-sm">{user?.name}</p>
                             </div>
                         </div>
@@ -108,7 +108,7 @@ const ProviderDashboard = () => {
                             to="/provider/post-job"
                             className="bg-white text-indigo-700 px-5 py-2 rounded-lg font-semibold hover:bg-indigo-50 transition"
                         >
-                            + Job Post Karo
+                            + Post a job.
                         </Link>
                     </div>
                 </div>
@@ -159,19 +159,19 @@ const ProviderDashboard = () => {
                                 to="/provider/post-job"
                                 className="bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-800 transition"
                             >
-                                + Nai Job
+                                + New Job
                             </Link>
                         </div>
 
                         {jobs.length === 0 ? (
                             <div className="p-12 text-center">
                                 <div className="text-5xl mb-3">💼</div>
-                                <p className="text-gray-400 mb-3">Abhi koi job post nahi ki</p>
+                                <p className="text-gray-400 mb-3">No job has been posted yet.</p>
                                 <Link
                                     to="/provider/post-job"
                                     className="bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-indigo-800 transition"
                                 >
-                                    Pehli Job Post Karo
+                                    Post Your First Job
                                 </Link>
                             </div>
                         ) : (

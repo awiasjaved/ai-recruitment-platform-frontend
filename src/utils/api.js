@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-    baseURL: 'http://localhost:3334/api'
+    baseURL: `${process.env.BASE_URL}/api`
 });
 
 // Har request mein token automatically add karo

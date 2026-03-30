@@ -55,8 +55,8 @@ const PostJob = () => {
             <div className="max-w-3xl mx-auto px-4 py-8">
 
                 <div className="bg-gradient-to-r from-indigo-700 to-indigo-500 rounded-2xl p-6 text-white mb-6">
-                    <h1 className="text-2xl font-bold">Nai Job Post Karo 💼</h1>
-                    <p className="text-indigo-100 mt-1">Apni job requirements bharo aur candidates dhoondho</p>
+                    <h1 className="text-2xl font-bold">Post a new job. 💼</h1>
+                    <p className="text-indigo-100 mt-1">Fill in your job requirements and find candidates.</p>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -83,7 +83,7 @@ const PostJob = () => {
                                 onChange={handleChange}
                                 required
                                 rows={5}
-                                placeholder="Job ki details, responsibilities aur requirements likho..."
+                                placeholder="Write the job details, responsibilities, and requirements…"
                                 className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition resize-none"
                             />
                         </div>
@@ -155,7 +155,7 @@ const PostJob = () => {
                                 disabled={loading}
                                 className="flex-1 bg-indigo-700 text-white py-3 rounded-lg font-semibold hover:bg-indigo-800 transition disabled:opacity-50"
                             >
-                                {loading ? 'Post ho raha hai...' : 'Job Post Karo 🚀'}
+                                {loading ? 'Post ho raha hai...' : 'post a job. 🚀'}
                             </button>
                         </div>
                     </form>

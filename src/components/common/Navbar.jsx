@@ -108,7 +108,7 @@ const Navbar = () => {
                                         <h3 className="font-semibold">Notifications</h3>
                                         {unreadCount > 0 && (
                                             <button onClick={handleMarkAllRead} className="text-xs text-blue-600 hover:underline">
-                                                Sab read karo
+                                                Mark all as read
                                             </button>
                                         )}
                                     </div>
