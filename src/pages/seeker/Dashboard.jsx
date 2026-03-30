@@ -64,8 +64,8 @@ const SeekerDashboard = () => {
                 <div className="bg-gradient-to-r from-blue-700 to-blue-500 rounded-2xl p-6 text-white mb-8">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold">Salam, {user?.name}! 👋</h1>
-                            <p className="text-blue-100 mt-1">Apni dream job dhoondho aaj hi</p>
+                            <h1 className="text-2xl font-bold">Hello, {user?.name}! 👋</h1>
+                            <p className="text-blue-100 mt-1">Find your dream job today</p>
                         </div>
                         <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-3xl font-bold">
                             {user?.name?.charAt(0).toUpperCase()}
@@ -76,9 +76,9 @@ const SeekerDashboard = () => {
                     {!profile?.skills && (
                         <div className="mt-4 bg-yellow-400 bg-opacity-20 border border-yellow-300 rounded-lg p-3">
                             <p className="text-yellow-100 text-sm">
-                                ⚠️ Profile incomplete hai!{' '}
+                                ⚠️ Your profile is incomplete!{' '}
                                 <Link to="/seeker/profile" className="underline font-semibold">
-                                    Abhi complete karo
+                                    Complete it now.
                                 </Link>
                             </p>
                         </div>
@@ -117,11 +117,11 @@ const SeekerDashboard = () => {
                     </Link>
                     <Link to="/seeker/assessment" className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:border-green-300 hover:shadow-md transition text-center">
                         <div className="text-3xl mb-2">📝</div>
-                        <div className="font-semibold text-gray-700 text-sm">Skill Test Do</div>
+                        <div className="font-semibold text-gray-700 text-sm">Skill Test</div>
                     </Link>
                     <Link to="/seeker/interview" className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:border-purple-300 hover:shadow-md transition text-center">
                         <div className="text-3xl mb-2">🎥</div>
-                        <div className="font-semibold text-gray-700 text-sm">Interview Do</div>
+                        <div className="font-semibold text-gray-700 text-sm">Interview</div>
                     </Link>
                     <Link to="/seeker/profile" className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:border-orange-300 hover:shadow-md transition text-center">
                         <div className="text-3xl mb-2">📄</div>
@@ -140,7 +140,7 @@ const SeekerDashboard = () => {
                                 <div className="mt-3 relative">
                                     <input
                                         type="text"
-                                        placeholder="Job ya skill search karo..."
+                                        placeholder="Search for a job or a skill…"
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -155,7 +155,7 @@ const SeekerDashboard = () => {
                                 {filteredJobs.length === 0 ? (
                                     <div className="p-8 text-center text-gray-400">
                                         <div className="text-4xl mb-2">🔍</div>
-                                        <p>Koi job nahi mili</p>
+                                        <p>No jobs found.</p>
                                     </div>
                                 ) : (
                                     filteredJobs.slice(0, 6).map(job => (
@@ -198,16 +198,16 @@ const SeekerDashboard = () => {
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="font-bold text-gray-800">Recent Tests</h2>
                                 <Link to="/seeker/assessment" className="text-blue-600 text-xs hover:underline">
-                                    Naya test do
+                                    Take a new test.
                                 </Link>
                             </div>
 
                             {assessments.length === 0 ? (
                                 <div className="text-center py-4">
                                     <div className="text-3xl mb-2">📝</div>
-                                    <p className="text-gray-400 text-sm">Koi test nahi diya abhi</p>
+                                    <p className="text-gray-400 text-sm">No tests taken yet.</p>
                                     <Link to="/seeker/assessment" className="text-blue-600 text-sm hover:underline mt-1 block">
-                                        Pehla test do
+                                        Take your first test.
                                     </Link>
                                 </div>
                             ) : (
@@ -237,7 +237,7 @@ const SeekerDashboard = () => {
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="font-bold text-gray-800">Interviews</h2>
                                 <Link to="/seeker/interview" className="text-blue-600 text-xs hover:underline">
-                                    Nai interview do
+                                    Give a new interview
                                 </Link>
                             </div>
 
@@ -246,7 +246,7 @@ const SeekerDashboard = () => {
                                     <div className="text-3xl mb-2">🎥</div>
                                     <p className="text-gray-400 text-sm">Koi interview nahi di abhi</p>
                                     <Link to="/seeker/interview" className="text-blue-600 text-sm hover:underline mt-1 block">
-                                        Pehli interview do
+                                        Give your first interview.
                                     </Link>
                                 </div>
                             ) : (
