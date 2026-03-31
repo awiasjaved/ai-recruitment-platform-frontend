@@ -45,6 +45,8 @@ const SeekerDashboard = () => {
 
     const completedAssessments = assessments.filter(a => a.status === 'completed');
     const completedInterviews = interviews.filter(i => i.status === 'completed');
+    const pendingAssessments = assessments.filter(a => a.status !== 'completed');
+    const pendingInterviews = interviews.filter(i => i.status !== 'completed');
 
     const inferSkillDomain = (job) => {
         const text = `${job.title || ''} ${job.required_skills || ''}`.toLowerCase();
@@ -119,6 +121,29 @@ const SeekerDashboard = () => {
                     </div>
                 </div>
 
+                {(pendingAssessments.length > 0 || pendingInterviews.length > 0) && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div>
+                            <h2 className="font-bold text-yellow-800">Pending tasks found</h2>
+                            <p className="text-sm text-yellow-700">
+                                {pendingAssessments.length} assessment(s) and {pendingInterviews.length} interview(s) still need completion.
+                            </p>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                            {pendingAssessments.length > 0 && (
+                                <Link to="/seeker/assessment" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition">
+                                    Complete Assessment
+                                </Link>
+                            )}
+                            {pendingInterviews.length > 0 && (
+                                <Link to="/seeker/interview" className="bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-purple-800 transition">
+                                    Complete Interview
+                                </Link>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* Quick Actions */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                     <Link to="/seeker/profile" className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-md transition text-center">
@@ -129,10 +154,10 @@ const SeekerDashboard = () => {
                         <div className="text-3xl mb-2">📝</div>
                         <div className="font-semibold text-gray-700 text-sm">Skill Test</div>
                     </Link>
-                    {/* <Link to="/seeker/interview" className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:border-purple-300 hover:shadow-md transition text-center">
+                    <Link to="/seeker/interview" className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:border-purple-300 hover:shadow-md transition text-center">
                         <div className="text-3xl mb-2">🎥</div>
                         <div className="font-semibold text-gray-700 text-sm">Interview</div>
-                    </Link> */}
+                    </Link>
                     <Link to="/seeker/profile" className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:border-orange-300 hover:shadow-md transition text-center">
                         <div className="text-3xl mb-2">📄</div>
                         <div className="font-semibold text-gray-700 text-sm">CV Upload</div>
@@ -228,19 +253,25 @@ const SeekerDashboard = () => {
                             ) : (
                                 <div className="space-y-3">
                                     {assessments.slice(0, 3).map(a => (
-                                        <div key={a.id} className="flex items-center justify-between">
+                                        <div key={a.id} className="flex items-center justify-between gap-3">
                                             <div>
                                                 <p className="text-sm font-medium text-gray-700 capitalize">{a.skill_domain}</p>
                                                 <p className="text-xs text-gray-400">{new Date(a.taken_at).toLocaleDateString()}</p>
                                             </div>
-                                            <div className={`text-sm font-bold px-3 py-1 rounded-full ${
-                                                a.score >= 80 ? 'bg-green-100 text-green-700' :
-                                                a.score >= 60 ? 'bg-blue-100 text-blue-700' :
-                                                a.score >= 40 ? 'bg-yellow-100 text-yellow-700' :
-                                                'bg-red-100 text-red-700'
-                                            }`}>
-                                                {a.score}%
-                                            </div>
+                                            {a.status === 'completed' ? (
+                                                <div className={`text-sm font-bold px-3 py-1 rounded-full ${
+                                                    a.score >= 80 ? 'bg-green-100 text-green-700' :
+                                                    a.score >= 60 ? 'bg-blue-100 text-blue-700' :
+                                                    a.score >= 40 ? 'bg-yellow-100 text-yellow-700' :
+                                                    'bg-red-100 text-red-700'
+                                                }`}>
+                                                    {a.score}%
+                                                </div>
+                                            ) : (
+                                                <Link to="/seeker/assessment" className="text-xs font-semibold text-green-700 hover:underline">
+                                                    Complete Now →
+                                                </Link>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -251,9 +282,9 @@ const SeekerDashboard = () => {
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="font-bold text-gray-800">Interviews</h2>
-                                {/* <Link to="/seeker/interview" className="text-blue-600 text-xs hover:underline">
+                                <Link to="/seeker/interview" className="text-blue-600 text-xs hover:underline">
                                     Give a new interview
-                                </Link> */}
+                                </Link>
                             </div>
 
                             {interviews.length === 0 ? (
@@ -267,20 +298,22 @@ const SeekerDashboard = () => {
                             ) : (
                                 <div className="space-y-3">
                                     {interviews.slice(0, 3).map(i => (
-                                        <div key={i.id} className="flex items-center justify-between">
+                                        <div key={i.id} className="flex items-center justify-between gap-3">
                                             <div>
                                                 <p className="text-sm font-medium text-gray-700">
                                                     {i.job_title || 'General Interview'}
                                                 </p>
                                                 <p className="text-xs text-gray-400">{new Date(i.conducted_at).toLocaleDateString()}</p>
                                             </div>
-                                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                                i.status === 'completed'
-                                                    ? 'bg-green-100 text-green-700'
-                                                    : 'bg-yellow-100 text-yellow-700'
-                                            }`}>
-                                                {i.status === 'completed' ? 'Done' : 'Pending'}
-                                            </span>
+                                            {i.status === 'completed' ? (
+                                                <span className="text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-700">
+                                                    Done
+                                                </span>
+                                            ) : (
+                                                <Link to="/seeker/interview" className="text-xs font-semibold text-purple-700 hover:underline">
+                                                    Complete Now →
+                                                </Link>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

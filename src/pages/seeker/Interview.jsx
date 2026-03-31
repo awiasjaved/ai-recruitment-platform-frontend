@@ -7,8 +7,11 @@ import {
     saveResponse,
     completeInterview,
     saveBehaviorLog,
-    getMyInterviews
+    getMyInterviews,
+    viewInterview
 } from '../../utils/api';
+
+const INTERVIEW_STORAGE_KEY = 'pendingInterviewSession';
 
 const Interview = () => {
     const location = useLocation();
@@ -36,7 +39,11 @@ const Interview = () => {
 
     useEffect(() => {
         loadInterviews();
-        return () => stopWebcam();
+        restoreSavedInterview(false);
+        return () => {
+            stopBehaviorMonitoring();
+            stopWebcam();
+        };
     }, []);
 
     useEffect(() => {
@@ -67,6 +74,188 @@ const Interview = () => {
         }, 1000);
         return () => clearInterval(timer);
     }, [currentQ, step]);
+
+    useEffect(() => {
+        if ((step === 'setup' || step === 'interview') && currentInterview) {
+            localStorage.setItem(INTERVIEW_STORAGE_KEY, JSON.stringify({
+                currentInterview,
+                currentQ,
+                answer,
+                savedAnswers,
+                behaviorFlags,
+                skillDomain,
+                timeLeft,
+                selectedJobId,
+                selectedJobTitle,
+                savedAt: Date.now()
+            }));
+        }
+    }, [step, currentInterview, currentQ, answer, savedAnswers, behaviorFlags, skillDomain, timeLeft, selectedJobId, selectedJobTitle]);
+
+    const clearSavedInterview = () => {
+        localStorage.removeItem(INTERVIEW_STORAGE_KEY);
+    };
+
+    const normalizeInterviewQuestions = (questions = []) => {
+        if (!Array.isArray(questions)) {
+            return [];
+        }
+
+        return questions
+            .map((question) => {
+                if (typeof question === 'string') {
+                    return question;
+                }
+
+                return question?.question || question?.text || question?.prompt || '';
+            })
+            .filter(Boolean);
+    };
+
+    const syncPendingInterviewState = (interviewData, responses = []) => {
+        const normalizedQuestions = normalizeInterviewQuestions(interviewData?.questions);
+        const validResponses = Array.isArray(responses) ? responses : [];
+        const answeredCount = validResponses.filter((item) => String(item?.answer ?? item?.response ?? '').trim()).length;
+        const nextQuestionIndex = normalizedQuestions.length > 0
+            ? Math.min(answeredCount, normalizedQuestions.length - 1)
+            : 0;
+        const currentResponse = validResponses.find((item, index) => (item?.question_index ?? index) === nextQuestionIndex);
+
+        setCurrentInterview({
+            ...interviewData,
+            interview_id: interviewData?.interview_id || interviewData?.id,
+            questions: normalizedQuestions
+        });
+        setCurrentQ(nextQuestionIndex);
+        setAnswer(currentResponse?.answer ?? currentResponse?.response ?? '');
+        setSavedAnswers(
+            validResponses
+                .filter((item) => String(item?.answer ?? item?.response ?? '').trim())
+                .map((item, index) => ({
+                    question: normalizedQuestions[item?.question_index ?? index] || item?.question || `Question ${index + 1}`,
+                    answer: item?.answer ?? item?.response ?? ''
+                }))
+        );
+        setBehaviorFlags([]);
+    };
+
+    const hydratePendingInterview = async (interview) => {
+        const fallbackInterviewId = interview?.interview_id || interview?.id;
+        const fallbackQuestions = normalizeInterviewQuestions(interview?.questions);
+        const fallbackResponses = Array.isArray(interview?.responses) ? interview.responses : [];
+
+        if (!fallbackInterviewId || fallbackQuestions.length > 0) {
+            return {
+                interview: {
+                    ...interview,
+                    interview_id: fallbackInterviewId,
+                    questions: fallbackQuestions
+                },
+                responses: fallbackResponses
+            };
+        }
+
+        const res = await viewInterview(fallbackInterviewId);
+        const detailedInterview = res.data?.interview || res.data || {};
+        const responses = Array.isArray(res.data?.responses)
+            ? res.data.responses
+            : Array.isArray(detailedInterview?.responses)
+                ? detailedInterview.responses
+                : fallbackResponses;
+
+        return {
+            interview: {
+                ...interview,
+                ...detailedInterview,
+                interview_id: detailedInterview?.interview_id || fallbackInterviewId,
+                questions: normalizeInterviewQuestions(detailedInterview?.questions || interview?.questions)
+            },
+            responses
+        };
+    };
+
+    const restoreSavedInterview = (notify = true) => {
+        const savedSession = localStorage.getItem(INTERVIEW_STORAGE_KEY);
+
+        if (!savedSession) {
+            return false;
+        }
+
+        try {
+            const parsed = JSON.parse(savedSession);
+            const normalizedQuestions = normalizeInterviewQuestions(parsed?.currentInterview?.questions);
+
+            if (!parsed?.currentInterview?.interview_id || normalizedQuestions.length === 0) {
+                throw new Error('Invalid saved interview');
+            }
+
+            const elapsedSeconds = Math.floor((Date.now() - (parsed.savedAt || Date.now())) / 1000);
+            const remainingTime = Math.max((parsed.timeLeft ?? 120) - elapsedSeconds, 0);
+
+            setCurrentInterview({
+                ...parsed.currentInterview,
+                questions: normalizedQuestions
+            });
+            setCurrentQ(parsed.currentQ || 0);
+            setAnswer(parsed.answer || '');
+            setSavedAnswers(parsed.savedAnswers || []);
+            setBehaviorFlags(parsed.behaviorFlags || []);
+            setSkillDomain(parsed.skillDomain || parsed.currentInterview?.skill_domain || '');
+            setSelectedJobId(parsed.selectedJobId ? String(parsed.selectedJobId) : '');
+            setSelectedJobTitle(parsed.selectedJobTitle || '');
+            setTimeLeft(remainingTime || 120);
+            setStep('setup');
+
+            if (notify) {
+                toast.info('Pending interview restored. Open webcam and resume.');
+            }
+            return true;
+        } catch (error) {
+            clearSavedInterview();
+            return false;
+        }
+    };
+
+    const openPendingInterview = async (interview = null) => {
+        if (interview?.job_id) {
+            setSelectedJobId(String(interview.job_id));
+        }
+        if (interview?.job_title) {
+            setSelectedJobTitle(interview.job_title);
+        }
+        if (interview?.skill_domain) {
+            setSkillDomain(interview.skill_domain);
+        }
+
+        const restored = restoreSavedInterview();
+        if (restored) {
+            return true;
+        }
+
+        if (interview) {
+            setLoading(true);
+            try {
+                const { interview: hydratedInterview, responses } = await hydratePendingInterview(interview);
+                syncPendingInterviewState(hydratedInterview, responses);
+            } catch (error) {
+                setCurrentInterview({
+                    ...interview,
+                    interview_id: interview.interview_id || interview.id,
+                    questions: normalizeInterviewQuestions(interview.questions)
+                });
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        setStep('setup');
+        toast.info(
+            interview
+                ? 'Pending interview ready hai. Webcam open karke resume karein.'
+                : 'Open webcam and complete the interview now.'
+        );
+        return true;
+    };
 
     const loadInterviews = async () => {
         try {
@@ -197,6 +386,45 @@ const Interview = () => {
         }
     };
 
+    const handleResumeInterview = async () => {
+        if (!currentInterview) {
+            handleStartInterview();
+            return;
+        }
+
+        if (!webcamOn) {
+            toast.error('Pehle webcam open karo');
+            return;
+        }
+
+        let interviewToResume = currentInterview;
+
+        if (!Array.isArray(currentInterview.questions) || currentInterview.questions.length === 0) {
+            setLoading(true);
+            try {
+                const { interview: hydratedInterview, responses } = await hydratePendingInterview(currentInterview);
+                syncPendingInterviewState(hydratedInterview, responses);
+                interviewToResume = hydratedInterview;
+            } catch (error) {
+                toast.error('Pending interview detail load nahi hui. Dobara Complete Now par click karein.');
+                return;
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        if (!interviewToResume?.interview_id || !Array.isArray(interviewToResume.questions) || interviewToResume.questions.length === 0) {
+            toast.error('Pending interview resume nahi ho rahi. Dobara try karein.');
+            return;
+        }
+
+        stopBehaviorMonitoring();
+        startBehaviorMonitoring(interviewToResume.interview_id);
+        startRecording();
+        setStep('interview');
+        toast.success('Pending interview resumed!');
+    };
+
     // Start Interview
     const handleStartInterview = async () => {
         if (!webcamOn) {
@@ -221,11 +449,20 @@ const Interview = () => {
             setAnswer('');
             setSavedAnswers([]);
             setBehaviorFlags([]);
+            setTimeLeft(120);
             startBehaviorMonitoring(res.data.interview_id);
             startRecording();
             setStep('interview');
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Interview shuru nahi hui');
+            const errorMessage = error.response?.data?.message || 'Interview shuru nahi hui';
+            const pendingInterview = myInterviews.find((interview) => interview.status !== 'completed');
+
+            if (errorMessage.toLowerCase().includes('pending') && pendingInterview) {
+                await openPendingInterview(pendingInterview);
+                return;
+            }
+
+            toast.error(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -291,6 +528,7 @@ const Interview = () => {
             }
 
             await completeInterview(currentInterview.interview_id, completionPayload);
+            clearSavedInterview();
             setStep('complete');
             loadInterviews();
             toast.success('Interview completed!');
@@ -340,7 +578,22 @@ const Interview = () => {
                                 </ul>
                             </div>
                             <button
-                                onClick={() => setStep('setup')}
+                                onClick={() => {
+                                    const pendingInterview = myInterviews.find((interview) => interview.status !== 'completed');
+
+                                    if (pendingInterview) {
+                                        openPendingInterview(pendingInterview);
+                                        return;
+                                    }
+
+                                    setCurrentInterview(null);
+                                    setCurrentQ(0);
+                                    setAnswer('');
+                                    setSavedAnswers([]);
+                                    setBehaviorFlags([]);
+                                    setTimeLeft(120);
+                                    setStep('setup');
+                                }}
                                 className="bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-800 transition"
                             >
                                 + Start New Interview
@@ -358,25 +611,38 @@ const Interview = () => {
                             ) : (
                                 <div className="space-y-3">
                                     {myInterviews.map(i => (
-                                        <div key={i.id} className="p-4 bg-gray-50 rounded-xl flex items-center justify-between">
-                                            <div>
-                                                <h3 className="font-semibold text-gray-800">
-                                                    {i.job_title || 'General Interview'}
-                                                </h3>
-                                                <p className="text-gray-500 text-sm">
-                                                    {i.company_name || 'AI Recruitment Platform'}
-                                                </p>
-                                                <p className="text-gray-400 text-xs mt-1">
-                                                    {new Date(i.conducted_at).toLocaleDateString('ur-PK')}
-                                                </p>
+                                        <div key={i.id} className="p-4 bg-gray-50 rounded-xl">
+                                            <div className="flex items-center justify-between gap-4">
+                                                <div>
+                                                    <h3 className="font-semibold text-gray-800">
+                                                        {i.job_title || 'General Interview'}
+                                                    </h3>
+                                                    <p className="text-gray-500 text-sm">
+                                                        {i.company_name || 'AI Recruitment Platform'}
+                                                    </p>
+                                                    <p className="text-gray-400 text-xs mt-1">
+                                                        {new Date(i.conducted_at).toLocaleDateString('ur-PK')}
+                                                    </p>
+                                                </div>
+                                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                                    i.status === 'completed'
+                                                        ? 'bg-green-100 text-green-700'
+                                                        : 'bg-yellow-100 text-yellow-700'
+                                                }`}>
+                                                    {i.status === 'completed' ? '✅ Complete' : '⏳ Pending'}
+                                                </span>
                                             </div>
-                                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                                i.status === 'completed'
-                                                    ? 'bg-green-100 text-green-700'
-                                                    : 'bg-yellow-100 text-yellow-700'
-                                            }`}>
-                                                {i.status === 'completed' ? '✅ Complete' : '⏳ Pending'}
-                                            </span>
+
+                                            {i.status !== 'completed' && (
+                                                <div className="mt-3 flex justify-end">
+                                                    <button
+                                                        onClick={() => openPendingInterview(i)}
+                                                        className="text-sm font-semibold text-purple-700 hover:underline"
+                                                    >
+                                                        Complete Now →
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -428,6 +694,13 @@ const Interview = () => {
                             <div>
                                 <h3 className="font-semibold text-gray-700 mb-2">Interview Field</h3>
 
+                                {currentInterview && (
+                                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 text-sm">
+                                        <p className="font-semibold text-yellow-800">A pending interview was found.</p>
+                                        <p className="text-yellow-700 mt-1">Open the webcam and resume it to finish submission.</p>
+                                    </div>
+                                )}
+
                                 {selectedJobId && (
                                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-sm">
                                         <p className="font-semibold text-blue-800">Applying for: {selectedJobTitle || `Job #${selectedJobId}`}</p>
@@ -468,12 +741,34 @@ const Interview = () => {
                                 </div>
 
                                 <button
-                                    onClick={handleStartInterview}
+                                    onClick={currentInterview ? handleResumeInterview : handleStartInterview}
                                     disabled={!webcamOn || loading}
                                     className="w-full bg-purple-700 text-white py-3 rounded-lg font-semibold hover:bg-purple-800 transition disabled:opacity-50"
                                 >
-                                    {loading ? 'Starting Interview...' : '🎬 Start Interview'}
+                                    {loading
+                                        ? 'Starting Interview...'
+                                        : currentInterview
+                                            ? '▶ Resume Pending Interview'
+                                            : '🎬 Start Interview'}
                                 </button>
+
+                                {currentInterview && (
+                                    <button
+                                        onClick={() => {
+                                            clearSavedInterview();
+                                            setCurrentInterview(null);
+                                            setCurrentQ(0);
+                                            setAnswer('');
+                                            setSavedAnswers([]);
+                                            setBehaviorFlags([]);
+                                            setTimeLeft(120);
+                                            toast.info('Sirf local progress clear hui hai. Pending interview ko list se dobara resume kar sakte hain.');
+                                        }}
+                                        className="w-full mt-2 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200 transition"
+                                    >
+                                        Clear Local Session
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -596,6 +891,7 @@ const Interview = () => {
                         <div className="flex gap-3 justify-center">
                             <button
                                 onClick={() => {
+                                    clearSavedInterview();
                                     setStep('list');
                                     setBehaviorFlags([]);
                                     setCurrentInterview(null);
