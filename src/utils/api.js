@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-    baseURL: `${process.env.BASE_URL}/api`
+    baseURL: `${process.env.REACT_APP_BASE_URL}/api`
 });
 
 // Har request mein token automatically add karo
@@ -57,7 +57,13 @@ export const getAssessmentResult = (id) => API.get(`/assessment/${id}`);
 // Interview APIs
 export const startInterview = (data) => API.post('/interview/start', data);
 export const saveResponse = (id, data) => API.post(`/interview/save-response/${id}`, data);
-export const completeInterview = (id) => API.put(`/interview/complete/${id}`);
+export const completeInterview = (id, data = {}) => API.put(
+    `/interview/complete/${id}`,
+    data,
+    data instanceof FormData
+        ? { headers: { 'Content-Type': 'multipart/form-data' } }
+        : {}
+);
 export const saveBehaviorLog = (id, data) => API.post(`/interview/behavior/${id}`, data);
 export const getMyInterviews = () => API.get('/interview/my');
 export const viewInterview = (id) => API.get(`/interview/view/${id}`);

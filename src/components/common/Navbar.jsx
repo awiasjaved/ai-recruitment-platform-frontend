@@ -68,7 +68,7 @@ const Navbar = () => {
                                 <Link to="/seeker/dashboard" className="hover:text-blue-200 transition">Dashboard</Link>
                                 <Link to="/seeker/profile" className="hover:text-blue-200 transition">Profile</Link>
                                 <Link to="/seeker/assessment" className="hover:text-blue-200 transition">Assessment</Link>
-                                <Link to="/seeker/interview" className="hover:text-blue-200 transition">Interview</Link>
+                                {/* <Link to="/seeker/interview" className="hover:text-blue-200 transition">Interview</Link> */}
                             </>
                         )}
                         {user?.role === 'job_provider' && (

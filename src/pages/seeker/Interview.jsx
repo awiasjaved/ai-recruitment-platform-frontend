@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Navbar from '../../components/common/Navbar';
 import {
@@ -10,6 +11,7 @@ import {
 } from '../../utils/api';
 
 const Interview = () => {
+    const location = useLocation();
     const [step, setStep] = useState('list'); // list, setup, interview, complete
     const [myInterviews, setMyInterviews] = useState([]);
     const [currentInterview, setCurrentInterview] = useState(null);
@@ -22,15 +24,32 @@ const Interview = () => {
     const [behaviorFlags, setBehaviorFlags] = useState([]);
     const [skillDomain, setSkillDomain] = useState('');
     const [timeLeft, setTimeLeft] = useState(120); // 2 min per question
-
+    const [selectedJobId, setSelectedJobId] = useState('');
+    const [selectedJobTitle, setSelectedJobTitle] = useState('');
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingSupported, setRecordingSupported] = useState(true);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
     const behaviorIntervalRef = useRef(null);
+    const mediaRecorderRef = useRef(null);
+    const recordedChunksRef = useRef([]);
 
     useEffect(() => {
         loadInterviews();
         return () => stopWebcam();
     }, []);
+
+    useEffect(() => {
+        if (location.state?.jobId) {
+            setSelectedJobId(String(location.state.jobId));
+        }
+        if (location.state?.jobTitle) {
+            setSelectedJobTitle(location.state.jobTitle);
+        }
+        if (!skillDomain && location.state?.skillDomain) {
+            setSkillDomain(location.state.skillDomain);
+        }
+    }, [location.state, skillDomain]);
 
     // Timer per question
     useEffect(() => {
@@ -59,6 +78,71 @@ const Interview = () => {
             setLoading(false);
         }
     };
+
+    const startRecording = () => {
+        if (!streamRef.current || typeof MediaRecorder === 'undefined') {
+            setRecordingSupported(false);
+            return;
+        }
+
+        try {
+            recordedChunksRef.current = [];
+            const preferredMimeTypes = [
+                'video/webm;codecs=vp9,opus',
+                'video/webm;codecs=vp8,opus',
+                'video/webm'
+            ];
+            const supportedMimeType = preferredMimeTypes.find(type => MediaRecorder.isTypeSupported(type));
+            const recorder = supportedMimeType
+                ? new MediaRecorder(streamRef.current, { mimeType: supportedMimeType })
+                : new MediaRecorder(streamRef.current);
+
+            recorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    recordedChunksRef.current.push(event.data);
+                }
+            };
+
+            recorder.start(1000);
+            mediaRecorderRef.current = recorder;
+            setIsRecording(true);
+            setRecordingSupported(true);
+        } catch (error) {
+            setRecordingSupported(false);
+            toast.warning('Video recording browser mein support nahi ho rahi.');
+        }
+    };
+
+    const stopRecording = () => new Promise((resolve) => {
+        const recorder = mediaRecorderRef.current;
+
+        if (!recorder) {
+            setIsRecording(false);
+            resolve(null);
+            return;
+        }
+
+        const finalizeRecording = () => {
+            const hasChunks = recordedChunksRef.current.length > 0;
+            const blob = hasChunks
+                ? new Blob(recordedChunksRef.current, { type: recorder.mimeType || 'video/webm' })
+                : null;
+
+            mediaRecorderRef.current = null;
+            recordedChunksRef.current = [];
+            setIsRecording(false);
+            resolve(blob);
+        };
+
+        recorder.onstop = finalizeRecording;
+
+        if (recorder.state === 'inactive') {
+            finalizeRecording();
+            return;
+        }
+
+        recorder.stop();
+    });
 
     // Webcam start
     const startWebcam = async () => {
@@ -116,17 +200,29 @@ const Interview = () => {
     // Start Interview
     const handleStartInterview = async () => {
         if (!webcamOn) {
-            toast.error('Pehle webcam on karo');
+            toast.error('open webcam!');
             return;
         }
+
+        if (!skillDomain.trim()) {
+            toast.error('Interview field select karo');
+            return;
+        }
+
         setLoading(true);
         try {
-            const res = await startInterview({ skill_domain: skillDomain });
+            const payload = {
+                skill_domain: skillDomain,
+                job_id: selectedJobId ? Number(selectedJobId) : null
+            };
+            const res = await startInterview(payload);
             setCurrentInterview(res.data);
             setCurrentQ(0);
             setAnswer('');
             setSavedAnswers([]);
+            setBehaviorFlags([]);
             startBehaviorMonitoring(res.data.interview_id);
+            startRecording();
             setStep('interview');
         } catch (error) {
             toast.error(error.response?.data?.message || 'Interview shuru nahi hui');
@@ -171,14 +267,38 @@ const Interview = () => {
     // Complete interview
     const handleComplete = async () => {
         stopBehaviorMonitoring();
-        stopWebcam();
+        setSaving(true);
+
         try {
-            await completeInterview(currentInterview.interview_id);
+            const videoBlob = await stopRecording();
+            const resolvedJobId = selectedJobId || currentInterview?.job_id || '';
+            let completionPayload = {
+                job_id: resolvedJobId || null,
+                skill_domain: skillDomain || currentInterview?.skill_domain || null
+            };
+
+            if (videoBlob) {
+                const fileExtension = videoBlob.type.includes('mp4') ? 'mp4' : 'webm';
+                const fileName = `interview-${currentInterview.interview_id}-${Date.now()}.${fileExtension}`;
+                const formData = new FormData();
+
+                formData.append('job_id', resolvedJobId);
+                formData.append('skill_domain', skillDomain || currentInterview?.skill_domain || '');
+                formData.append('video', videoBlob, fileName);
+                formData.append('video_path', fileName);
+
+                completionPayload = formData;
+            }
+
+            await completeInterview(currentInterview.interview_id, completionPayload);
             setStep('complete');
             loadInterviews();
-            toast.success('Interview complete ho gayi!');
+            toast.success('Interview completed!');
         } catch (error) {
-            toast.error('Interview complete nahi hui');
+            toast.error(error.response?.data?.message || 'Interview not completedi');
+        } finally {
+            stopWebcam();
+            setSaving(false);
         }
     };
 
@@ -307,6 +427,13 @@ const Interview = () => {
                             {/* Settings */}
                             <div>
                                 <h3 className="font-semibold text-gray-700 mb-2">Interview Field</h3>
+
+                                {selectedJobId && (
+                                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-sm">
+                                        <p className="font-semibold text-blue-800">Applying for: {selectedJobTitle || `Job #${selectedJobId}`}</p>
+                                    </div>
+                                )}
+
                                 <div className="space-y-2 mb-4">
                                     {skills.map(skill => (
                                         <button
@@ -326,10 +453,18 @@ const Interview = () => {
                                     ))}
                                 </div>
 
-                                <div className={`p-3 rounded-lg text-sm mb-4 ${
+                                <div className={`p-3 rounded-lg text-sm mb-2 ${
                                     webcamOn ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
                                 }`}>
                                     {webcamOn ? '✅ Webcam Connected' : '❌ First on Webcam'}
+                                </div>
+
+                                <div className={`p-3 rounded-lg text-sm mb-4 ${
+                                    recordingSupported ? 'bg-blue-50 text-blue-700' : 'bg-yellow-50 text-yellow-700'
+                                }`}>
+                                    {recordingSupported
+                                        ? `🎥 Interview recording ${isRecording ? 'in progress' : 'ready to save'}`
+                                        : '⚠️ Browser video recording support limited hai'}
                                 </div>
 
                                 <button
@@ -404,13 +539,13 @@ const Interview = () => {
 
                             <div className="mb-4">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Tumhara Jawab:
+                                    Answer:
                                 </label>
                                 <textarea
                                     value={answer}
                                     onChange={(e) => setAnswer(e.target.value)}
                                     rows={6}
-                                    placeholder="Apna jawab yahan type karo..."
+                                    placeholder="Type your answer here..."
                                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
                                 />
                                 <p className="text-gray-400 text-xs mt-1 text-right">
@@ -420,7 +555,7 @@ const Interview = () => {
 
                             <div className="flex justify-between items-center">
                                 <p className="text-gray-400 text-sm">
-                                    Saaf awaaz mein aur seedha camera dekho
+                                    clear voice and straight look at the camera.
                                 </p>
                                 <button
                                     onClick={handleNextQuestion}
@@ -429,7 +564,7 @@ const Interview = () => {
                                 >
                                     {saving ? 'Save...' :
                                      currentQ < currentInterview.questions.length - 1
-                                        ? 'Agla Sawaal →'
+                                        ? 'Next Question →'
                                         : 'Interview Complete ✓'}
                                 </button>
                             </div>
@@ -443,10 +578,10 @@ const Interview = () => {
                         <div className="text-6xl mb-4">🎉</div>
                         <h2 className="text-2xl font-bold text-gray-800 mb-2">Interview Complete!</h2>
                         <p className="text-gray-500 mb-2">
-                            Bohat acha kiya! Tumhari interview record ho gayi.
+                            Congratulations! Your interview has been completed.
                         </p>
                         <p className="text-gray-400 text-sm mb-8">
-                            HR jald hi review karega aur tumhe notify karega.
+                            HR will review your interview and notify you soon.
                         </p>
 
                         {behaviorFlags.length > 0 && (
@@ -467,7 +602,7 @@ const Interview = () => {
                                 }}
                                 className="bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-800 transition"
                             >
-                                Dashboard pe Jao
+                                Back to Dashboard
                             </button>
                         </div>
                     </div>

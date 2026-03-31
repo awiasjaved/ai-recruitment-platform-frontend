@@ -1,7 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import './App.css';
 
 // Auth Pages
 import Login from './pages/auth/Login';
@@ -21,6 +23,15 @@ import Candidates from './pages/provider/Candidates';
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
 
+const PageLoader = ({ message = 'Loading...' }) => (
+    <div className="page-loader-overlay">
+        <div className="page-loader-box">
+            <div className="page-loader-spinner"></div>
+            <p>{message}</p>
+        </div>
+    </div>
+);
+
 // ============================================
 // PRIVATE ROUTE - Login zaroori hai
 // ============================================
@@ -28,17 +39,13 @@ const PrivateRoute = ({ children, allowedRoles }) => {
     const { user, loading } = useAuth();
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-        );
+        return <PageLoader message="Please wait..." />;
     }
 
-    if (!user) return <Navigate to="/login" />;
+    if (!user) return <Navigate to="/login" replace />;
 
     if (allowedRoles && !allowedRoles.includes(user.role)) {
-        return <Navigate to="/" />;
+        return <Navigate to="/" replace />;
     }
 
     return children;
@@ -51,26 +58,37 @@ const HomeRedirect = () => {
     const { user, loading } = useAuth();
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-        );
+        return <PageLoader message="Please wait..." />;
     }
 
-    if (!user) return <Navigate to="/login" />;
-    if (user.role === 'job_seeker') return <Navigate to="/seeker/dashboard" />;
-    if (user.role === 'job_provider') return <Navigate to="/provider/dashboard" />;
-    if (user.role === 'admin') return <Navigate to="/admin/dashboard" />;
-    return <Navigate to="/login" />;
+    if (!user) return <Navigate to="/login" replace />;
+    if (user.role === 'job_seeker') return <Navigate to="/seeker/dashboard" replace />;
+    if (user.role === 'job_provider') return <Navigate to="/provider/dashboard" replace />;
+    if (user.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
+    return <Navigate to="/login" replace />;
 };
 
-// ============================================
-// MAIN APP
-// ============================================
-function AppRoutes() {
+function AppContent() {
+    const location = useLocation();
+    const { loading } = useAuth();
+    const [routeLoading, setRouteLoading] = useState(true);
+    const firstLoadRef = useRef(true);
+
+    useEffect(() => {
+        setRouteLoading(true);
+
+        const timer = setTimeout(() => {
+            setRouteLoading(false);
+            firstLoadRef.current = false;
+        }, firstLoadRef.current ? 800 : 400);
+
+        return () => clearTimeout(timer);
+    }, [location.pathname]);
+
     return (
-        <Router>
+        <>
+            {(loading || routeLoading) && <PageLoader message="" />}
+
             <Routes>
                 {/* Home */}
                 <Route path="/" element={<HomeRedirect />} />
@@ -126,8 +144,19 @@ function AppRoutes() {
                 } />
 
                 {/* 404 */}
-                <Route path="*" element={<Navigate to="/" />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+        </>
+    );
+}
+
+// ============================================
+// MAIN APP
+// ============================================
+function AppRoutes() {
+    return (
+        <Router>
+            <AppContent />
         </Router>
     );
 }

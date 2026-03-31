@@ -70,18 +70,18 @@ const Candidates = () => {
                 {/* Header */}
                 <div className="bg-gradient-to-r from-indigo-700 to-indigo-500 rounded-2xl p-6 text-white mb-6">
                     <button onClick={() => navigate('/provider/dashboard')} className="text-indigo-200 hover:text-white mb-2 text-sm">
-                        ← Dashboard pe Jao
+                        ← Back to Dashboard
                     </button>
                     <h1 className="text-2xl font-bold">{job?.title}</h1>
                     <p className="text-indigo-100 mt-1">
-                        {candidates.length} candidates ne apply kiya
+                        {candidates.length} candidate applied
                     </p>
                 </div>
 
                 {candidates.length === 0 ? (
                     <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
                         <div className="text-5xl mb-3">👥</div>
-                        <p className="text-gray-400">Abhi koi candidate nahi aaya</p>
+                        <p className="text-gray-400">No candidates have applied for this job yet.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -127,7 +127,7 @@ const Candidates = () => {
                                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center h-full flex items-center justify-center">
                                     <div>
                                         <div className="text-5xl mb-3">👈</div>
-                                        <p className="text-gray-400">Candidate select karo details dekhne ke liye</p>
+                                        <p className="text-gray-400">Select a candidate to view details</p>
                                     </div>
                                 </div>
                             ) : (
@@ -197,7 +197,7 @@ const Candidates = () => {
                                                 className="flex items-center gap-2 bg-green-50 text-green-700 p-4 rounded-xl hover:bg-green-100 transition"
                                             >
                                                 <span className="text-xl">📄</span>
-                                                <span className="font-medium text-sm">CV Dekho / Download Karo</span>
+                                                <span className="font-medium text-sm">View CV / Download</span>
                                             </a>
                                         )}
 
@@ -217,7 +217,7 @@ const Candidates = () => {
                                             </div>
                                         ) : (
                                             <div className="bg-gray-50 rounded-xl p-4 text-center">
-                                                <p className="text-gray-400 text-sm">Interview recording abhi available nahi</p>
+                                                <p className="text-gray-400 text-sm">No interview recording available.</p>
                                             </div>
                                         )}
 

@@ -46,6 +46,16 @@ const SeekerDashboard = () => {
     const completedAssessments = assessments.filter(a => a.status === 'completed');
     const completedInterviews = interviews.filter(i => i.status === 'completed');
 
+    const inferSkillDomain = (job) => {
+        const text = `${job.title || ''} ${job.required_skills || ''}`.toLowerCase();
+
+        if (text.includes('python')) return 'python';
+        if (text.includes('data')) return 'data science';
+        if (text.includes('design')) return 'graphic design';
+        if (text.includes('mobile') || text.includes('android') || text.includes('ios')) return 'mobile development';
+        return 'web development';
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -119,10 +129,10 @@ const SeekerDashboard = () => {
                         <div className="text-3xl mb-2">📝</div>
                         <div className="font-semibold text-gray-700 text-sm">Skill Test</div>
                     </Link>
-                    <Link to="/seeker/interview" className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:border-purple-300 hover:shadow-md transition text-center">
+                    {/* <Link to="/seeker/interview" className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:border-purple-300 hover:shadow-md transition text-center">
                         <div className="text-3xl mb-2">🎥</div>
                         <div className="font-semibold text-gray-700 text-sm">Interview</div>
-                    </Link>
+                    </Link> */}
                     <Link to="/seeker/profile" className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:border-orange-300 hover:shadow-md transition text-center">
                         <div className="text-3xl mb-2">📄</div>
                         <div className="font-semibold text-gray-700 text-sm">CV Upload</div>
@@ -178,9 +188,14 @@ const SeekerDashboard = () => {
                                                 </div>
                                                 <Link
                                                     to="/seeker/interview"
+                                                    state={{
+                                                        jobId: job.id,
+                                                        jobTitle: job.title,
+                                                        skillDomain: inferSkillDomain(job)
+                                                    }}
                                                     className="ml-4 bg-blue-700 text-white text-xs px-3 py-2 rounded-lg hover:bg-blue-800 transition whitespace-nowrap"
                                                 >
-                                                    Apply karo
+                                                    Apply
                                                 </Link>
                                             </div>
                                         </div>
@@ -236,15 +251,15 @@ const SeekerDashboard = () => {
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="font-bold text-gray-800">Interviews</h2>
-                                <Link to="/seeker/interview" className="text-blue-600 text-xs hover:underline">
+                                {/* <Link to="/seeker/interview" className="text-blue-600 text-xs hover:underline">
                                     Give a new interview
-                                </Link>
+                                </Link> */}
                             </div>
 
                             {interviews.length === 0 ? (
                                 <div className="text-center py-4">
                                     <div className="text-3xl mb-2">🎥</div>
-                                    <p className="text-gray-400 text-sm">Koi interview nahi di abhi</p>
+                                    <p className="text-gray-400 text-sm">You haven't taken any interviews yet.</p>
                                     <Link to="/seeker/interview" className="text-blue-600 text-sm hover:underline mt-1 block">
                                         Give your first interview.
                                     </Link>
