@@ -16,9 +16,70 @@ const Assessment = () => {
     const [submitting, setSubmitting] = useState(false);
     const [timeLeft, setTimeLeft] = useState(1800); // 30 minutes
 
+    // Save assessment state to localStorage
+    const saveAssessmentState = useCallback(() => {
+        if (step === 'test' && currentAssessment) {
+            const state = {
+                step,
+                selectedSkill,
+                currentAssessment,
+                answers,
+                currentQ,
+                timeLeft,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('assessmentState', JSON.stringify(state));
+        }
+    }, [step, selectedSkill, currentAssessment, answers, currentQ, timeLeft]);
+
+    // Load assessment state from localStorage
+    const loadAssessmentState = useCallback(() => {
+        const saved = localStorage.getItem('assessmentState');
+        if (saved) {
+            try {
+                const state = JSON.parse(saved);
+                // Check if saved within last 24 hours
+                if (Date.now() - state.timestamp < 24 * 60 * 60 * 1000) {
+                    setStep(state.step);
+                    setSelectedSkill(state.selectedSkill);
+                    setCurrentAssessment(state.currentAssessment);
+                    setAnswers(state.answers);
+                    setCurrentQ(state.currentQ);
+                    setTimeLeft(state.timeLeft);
+                    toast.info('Resumed your previous assessment');
+                    return true;
+                } else {
+                    localStorage.removeItem('assessmentState');
+                }
+            } catch (error) {
+                localStorage.removeItem('assessmentState');
+            }
+        }
+        return false;
+    }, []);
+
+    // Clear saved state
+    const clearAssessmentState = () => {
+        localStorage.removeItem('assessmentState');
+    };
+
     useEffect(() => {
         loadData();
     }, []);
+
+    // Try to resume saved assessment
+    useEffect(() => {
+        if (!loading && skills.length > 0) {
+            loadAssessmentState();
+        }
+    }, [loading, skills, loadAssessmentState]);
+
+    // Save state whenever it changes during test
+    useEffect(() => {
+        if (step === 'test') {
+            saveAssessmentState();
+        }
+    }, [step, answers, currentQ, timeLeft, saveAssessmentState]);
 
     // Timer
     useEffect(() => {
@@ -77,13 +138,34 @@ const Assessment = () => {
             const res = await submitAssessment(currentAssessment.assessment_id, { answers });
             setResult(res.data.result);
             setStep('result');
-            loadData();
+            clearAssessmentState(); // Clear saved state after submission
+            // Update local state: either update existing or add new assessment as completed
+            setMyAssessments(prev => {
+                const existingIndex = prev.findIndex(a => a.id === currentAssessment.assessment_id);
+                if (existingIndex >= 0) {
+                    // Update existing
+                    const updated = [...prev];
+                    updated[existingIndex] = { ...updated[existingIndex], status: 'completed', score: res.data.result.score };
+                    return updated;
+                } else {
+                    // Add new assessment
+                    return [...prev, {
+                        id: currentAssessment.assessment_id,
+                        skill_domain: selectedSkill,
+                        status: 'completed',
+                        score: res.data.result.score,
+                        taken_at: new Date().toISOString()
+                    }];
+                }
+            });
+            // Sync with server after delay
+            setTimeout(() => loadData(), 3000);
         } catch (error) {
             toast.error('Failed to submit assessment');
         } finally {
             setSubmitting(false);
         }
-    }, [currentAssessment, answers]);
+    }, [currentAssessment, answers, selectedSkill]);
 
     const formatTime = (seconds) => {
         const m = Math.floor(seconds / 60);
@@ -150,10 +232,10 @@ const Assessment = () => {
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                             <h2 className="text-lg font-bold text-gray-800 mb-4">Previous Tests</h2>
 
-                            {myAssessments.length === 0 ? (
+                            {myAssessments.filter(a => a.status === 'completed').length === 0 ? (
                                 <div className="text-center py-8">
                                     <div className="text-5xl mb-3">📝</div>
-                                    <p className="text-gray-400">No tests taken yet.</p>
+                                    <p className="text-gray-400">No completed tests yet.</p>
                                     <button
                                         onClick={() => setStep('select')}
                                         className="mt-3 text-green-600 font-semibold hover:underline"
@@ -163,7 +245,7 @@ const Assessment = () => {
                                 </div>
                             ) : (
                                 <div className="space-y-3">
-                                    {myAssessments.map(a => (
+                                    {myAssessments.filter(a => a.status === 'completed').map(a => (
                                         <div key={a.id} className={`p-4 rounded-xl border ${getScoreBg(a.score)}`}>
                                             <div className="flex items-center justify-between">
                                                 <div>
@@ -174,7 +256,7 @@ const Assessment = () => {
                                                 </div>
                                                 <div className="text-right">
                                                     <div className={`text-2xl font-bold ${getScoreColor(a.score)}`}>
-                                                        {a.status === 'completed' ? `${a.score}%` : 'Pending'}
+                                                        {a.score}%
                                                     </div>
                                                     <div className="text-xs text-gray-500">
                                                         {a.score >= 80 ? '🌟 Excellent' :
@@ -183,18 +265,16 @@ const Assessment = () => {
                                                     </div>
                                                 </div>
                                             </div>
-                                            {a.status === 'completed' && (
-                                                <div className="mt-2 bg-white bg-opacity-60 rounded-lg h-2">
-                                                    <div
-                                                        className={`h-2 rounded-lg ${
-                                                            a.score >= 80 ? 'bg-green-500' :
-                                                            a.score >= 60 ? 'bg-blue-500' :
-                                                            a.score >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-                                                        }`}
-                                                        style={{ width: `${a.score}%` }}
-                                                    />
-                                                </div>
-                                            )}
+                                            <div className="mt-2 bg-white bg-opacity-60 rounded-lg h-2">
+                                                <div
+                                                    className={`h-2 rounded-lg ${
+                                                        a.score >= 80 ? 'bg-green-500' :
+                                                        a.score >= 60 ? 'bg-blue-500' :
+                                                        a.score >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                                                    }`}
+                                                    style={{ width: `${a.score}%` }}
+                                                />
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -371,13 +451,18 @@ const Assessment = () => {
                                     Next →
                                 </button>
                             ) : (
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={submitting}
-                                    className="px-5 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
-                                >
-                                    {submitting ? 'Submitting...' : 'Submit Test ✓'}
-                                </button>
+                                <div className="text-right">
+                                    {answers.some(a => a === '') && (
+                                        <p className="text-red-500 text-sm mb-2">Please answer all questions before submitting.</p>
+                                    )}
+                                    <button
+                                        onClick={handleSubmit}
+                                        disabled={submitting || answers.some(a => a === '')}
+                                        className="px-5 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
+                                    >
+                                        {submitting ? 'Submitting...' : 'Submit Test ✓'}
+                                    </button>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -430,6 +515,7 @@ const Assessment = () => {
                                 setCurrentQ(0);
                                 setResult(null);
                                 setSelectedSkill('');
+                                clearAssessmentState();
                             }}
                             className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition"
                         >
