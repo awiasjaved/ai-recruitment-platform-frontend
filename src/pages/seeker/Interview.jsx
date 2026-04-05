@@ -495,7 +495,7 @@ const Interview = () => {
                 await handleComplete();
             }
         } catch (error) {
-            toast.error('Jawab save nahi hua');
+            toast.error('Answer cant be saved');
         } finally {
             setSaving(false);
         }

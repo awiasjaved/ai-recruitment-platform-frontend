@@ -40,7 +40,7 @@ const Candidates = () => {
             const res = await viewInterview(candidate.id);
             setInterviewData(res.data);
         } catch (error) {
-            toast.error('Interview load nahi hui');
+            toast.error('interview data can\'t be loaded');
         } finally {
             setLoadingInterview(false);
         }
