@@ -114,7 +114,7 @@ const Navbar = () => {
                                     </div>
                                     <div className="max-h-64 overflow-y-auto">
                                         {notifications.length === 0 ? (
-                                            <p className="text-center text-gray-500 py-4 text-sm">Koi notification nahi</p>
+                                            <p className="text-center text-gray-500 py-4 text-sm">No notifications</p>
                                         ) : (
                                             notifications.slice(0, 5).map(notif => (
                                                 <div key={notif.id} className={`p-3 border-b hover:bg-gray-50 ${!notif.is_read ? 'bg-blue-50' : ''}`}>

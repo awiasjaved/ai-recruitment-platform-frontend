@@ -28,7 +28,7 @@ const PostJob = () => {
         setLoading(true);
         try {
             await createJob(formData);
-            toast.success('Job post ho gayi!');
+            toast.success('Job posted successfully!');
             navigate('/provider/dashboard');
         } catch (error) {
             toast.error(error.response?.data?.message || 'Job post nahi hui');

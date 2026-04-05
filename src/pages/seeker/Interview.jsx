@@ -251,7 +251,7 @@ const Interview = () => {
         setStep('setup');
         toast.info(
             interview
-                ? 'Pending interview ready hai. Webcam open karke resume karein.'
+                ? 'Pending interview restored. Open webcam and resume.'
                 : 'Open webcam and complete the interview now.'
         );
         return true;
@@ -345,9 +345,9 @@ const Interview = () => {
                 videoRef.current.srcObject = stream;
             }
             setWebcamOn(true);
-            toast.success('Webcam ready hai!');
+            toast.success('webcam is ready');
         } catch (error) {
-            toast.error('Webcam allow karo — settings mein jao aur permission do');
+            toast.error('Allow webcam — go to settings and grant permission.');
         }
     };
 
@@ -414,7 +414,7 @@ const Interview = () => {
         }
 
         if (!interviewToResume?.interview_id || !Array.isArray(interviewToResume.questions) || interviewToResume.questions.length === 0) {
-            toast.error('Pending interview resume nahi ho rahi. Dobara try karein.');
+            toast.error('The pending interview is not resuming. Please try again');
             return;
         }
 
@@ -433,7 +433,7 @@ const Interview = () => {
         }
 
         if (!skillDomain.trim()) {
-            toast.error('Interview field select karo');
+            toast.error('select ya enter skill domain!');
             return;
         }
 
@@ -674,7 +674,7 @@ const Interview = () => {
                                     ) : (
                                         <div className="text-center text-gray-400">
                                             <div className="text-5xl mb-2">📷</div>
-                                            <p className="text-sm">Webcam off hai</p>
+                                            <p className="text-sm">Webcam is off    </p>
                                         </div>
                                     )}
                                 </div>
@@ -762,7 +762,7 @@ const Interview = () => {
                                             setSavedAnswers([]);
                                             setBehaviorFlags([]);
                                             setTimeLeft(120);
-                                            toast.info('Sirf local progress clear hui hai. Pending interview ko list se dobara resume kar sakte hain.');
+                                            toast.info('Only local progress has been cleared. You can resume the pending interview again from the list.');
                                         }}
                                         className="w-full mt-2 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200 transition"
                                     >

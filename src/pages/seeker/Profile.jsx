@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import Navbar from '../../components/common/Navbar';
 import { getSeekerProfile, updateSeekerProfile, uploadCV } from '../../utils/api';
-
+import { useAuth } from '../../context/AuthContext';
 const SeekerProfile = () => {
+    const { user, loadUser } = useAuth();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -17,7 +18,7 @@ const SeekerProfile = () => {
     });
     const [cvFile, setCvFile] = useState(null);
     const [activeTab, setActiveTab] = useState('profile');
-
+    
     useEffect(() => {
         loadProfile();
     }, []);
@@ -35,7 +36,7 @@ const SeekerProfile = () => {
                 bio: data.profile?.bio || ''
             });
         } catch (error) {
-            toast.error('Profile load nahi hui');
+            toast.error('profile could not be loaded. Try again.');
         } finally {
             setLoading(false);
         }
@@ -45,15 +46,18 @@ const SeekerProfile = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+
+
     const handleSave = async (e) => {
         e.preventDefault();
         setSaving(true);
         try {
             await updateSeekerProfile(formData);
-            toast.success('Profile update ho gayi!');
+            toast.success('Profile updated successfully!');
+            await loadUser();
             loadProfile();
         } catch (error) {
-            toast.error('Profile save nahi hui');
+            toast.error('Profile save unsuccessful. Try again.');
         } finally {
             setSaving(false);
         }
@@ -61,7 +65,7 @@ const SeekerProfile = () => {
 
     const handleCVUpload = async () => {
         if (!cvFile) {
-            toast.error('Pehle CV select karo');
+            toast.error('First select a CV file to upload.');
             return;
         }
         setUploading(true);
@@ -69,11 +73,11 @@ const SeekerProfile = () => {
             const data = new FormData();
             data.append('cv', cvFile);
             await uploadCV(data);
-            toast.success('CV upload ho gayi!');
+            toast.success('CV uploaded successfully!');
             loadProfile();
             setCvFile(null);
         } catch (error) {
-            toast.error('CV upload nahi hui');
+            toast.error('cv upload unsuccessful. Try again.');
         } finally {
             setUploading(false);
         }
@@ -106,10 +110,10 @@ const SeekerProfile = () => {
                 <div className="bg-gradient-to-r from-blue-700 to-blue-500 rounded-2xl p-6 text-white mb-6">
                     <div className="flex items-center gap-4">
                         <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-4xl font-bold">
-                            {formData.name?.charAt(0).toUpperCase()}
+                            {user?.name?.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold">{formData.name}</h1>
+                            <h1 className="text-2xl font-bold">{user?.name}</h1>
                             <p className="text-blue-100">{formData.experience || 'Add experience.'}</p>
                             <p className="text-blue-200 text-sm mt-1">
                                 {skillsList.length > 0 ? `${skillsList.length} skills` : 'Add skills.'}
@@ -142,19 +146,19 @@ const SeekerProfile = () => {
                         <h2 className="text-lg font-bold text-gray-800 mb-6">Personal Information</h2>
                         <form onSubmit={handleSave} className="space-y-5">
 
-                            <div>
+                            {/* <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Full Naam
+                                    Full Name
                                 </label>
                                 <input
                                     type="text"
                                     name="name"
-                                    value={formData.name}
+                                    value={user?.name}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition cursor-not-allowed"
                                     placeholder="Your full name"
                                 />
-                            </div>
+                            </div> */}
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -203,7 +207,7 @@ const SeekerProfile = () => {
                                 disabled={saving}
                                 className="w-full bg-blue-700 text-white py-3 rounded-lg font-semibold hover:bg-blue-800 transition disabled:opacity-50"
                             >
-                                {saving ? 'Save ho raha hai...' : 'Save Profile'}
+                                {saving ? 'Saving...' : 'Save Profile'}
                             </button>
                         </form>
                     </div>

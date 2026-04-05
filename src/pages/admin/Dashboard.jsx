@@ -51,7 +51,7 @@ const AdminDashboard = () => {
     const handleToggleUser = async (userId, isActive) => {
         try {
             await API.put(`/admin/users/${userId}/toggle`);
-            toast.success(isActive ? 'User band kar diya' : 'User active kar diya');
+            toast.success(isActive ? 'The user has been deactivated.' : 'The user has been activated.');
             setUsers(users.map(u =>
                 u.id === userId ? { ...u, is_active: !u.is_active } : u
             ));
@@ -61,10 +61,10 @@ const AdminDashboard = () => {
     };
 
     const handleDeleteJob = async (jobId) => {
-        if (!window.confirm('Yeh job delete karna chahte ho?')) return;
+        if (!window.confirm('Are you sure you want to delete this job?')) return;
         try {
             await API.delete(`/admin/jobs/${jobId}`);
-            toast.success('Job delete ho gayi');
+            toast.success('Job deleted successfully');
             setJobs(jobs.filter(j => j.id !== jobId));
         } catch (error) {
             toast.error('Job delete nahi hui');
@@ -92,7 +92,7 @@ const AdminDashboard = () => {
                 {/* Header */}
                 <div className="bg-gradient-to-r from-gray-800 to-gray-600 rounded-2xl p-6 text-white mb-6">
                     <h1 className="text-2xl font-bold">Admin Dashboard ⚙️</h1>
-                    <p className="text-gray-300 mt-1">Poore system ka control yahan hai</p>
+                    <p className="text-gray-300 mt-1">Manage all aspects of the platform</p>
                 </div>
 
                 {/* Stats */}
@@ -298,7 +298,7 @@ const AdminDashboard = () => {
                                                                 : 'bg-green-50 text-green-600 hover:bg-green-100'
                                                         }`}
                                                     >
-                                                        {u.is_active ? 'Ban Karo' : 'Unban Karo'}
+                                                        {u.is_active ? 'Deactivate' : 'Activate'}
                                                     </button>
                                                 )}
                                             </td>
