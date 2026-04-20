@@ -47,6 +47,17 @@ const Interview = () => {
     }, []);
 
     useEffect(() => {
+    if (step === 'interview' && streamRef.current && videoRef.current) {
+        setTimeout(() => {
+            if (videoRef.current && streamRef.current) {
+                videoRef.current.srcObject = streamRef.current;
+                videoRef.current.play().catch(e => console.log(e));
+            }
+        }, 200);
+    }
+}, [step]);
+
+    useEffect(() => {
         if (location.state?.jobId) {
             setSelectedJobId(String(location.state.jobId));
         }
@@ -334,22 +345,44 @@ const Interview = () => {
     });
 
     // Webcam start
+    // const startWebcam = async () => {
+    //     try {
+    //         const stream = await navigator.mediaDevices.getUserMedia({
+    //             video: true,
+    //             audio: true
+    //         });
+    //         streamRef.current = stream;
+    //         if (videoRef.current) {
+    //             videoRef.current.srcObject = stream;
+    //         }
+    //         setWebcamOn(true);
+    //         toast.success('webcam is ready');
+    //     } catch (error) {
+    //         toast.error('Allow webcam — go to settings and grant permission.');
+    //     }
+    // };
     const startWebcam = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: true
-            });
-            streamRef.current = stream;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+        });
+        streamRef.current = stream;
+        
+        // ← Yeh fix karo — setTimeout se wait karo
+        setTimeout(() => {
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
+                videoRef.current.play().catch(e => console.log('Play error:', e));
             }
-            setWebcamOn(true);
-            toast.success('webcam is ready');
-        } catch (error) {
-            toast.error('Allow webcam — go to settings and grant permission.');
-        }
-    };
+        }, 100);
+        
+        setWebcamOn(true);
+        toast.success('Webcam is ready');
+    } catch (error) {
+        toast.error('Allow webcam — go to settings and grant permission.');
+    }
+};
 
     // Webcam stop
     const stopWebcam = () => {
@@ -666,11 +699,13 @@ const Interview = () => {
                                 <div className="bg-gray-900 rounded-xl overflow-hidden aspect-video flex items-center justify-center">
                                     {webcamOn ? (
                                         <video
-                                            ref={videoRef}
-                                            autoPlay
-                                            muted
-                                            className="w-full h-full object-cover"
-                                        />
+    ref={videoRef}
+    autoPlay
+    muted
+    playsInline
+    controls={false}
+    className="w-full h-full object-cover"
+/>
                                     ) : (
                                         <div className="text-center text-gray-400">
                                             <div className="text-5xl mb-2">📷</div>
@@ -776,18 +811,19 @@ const Interview = () => {
 
                 {/* ===== INTERVIEW ===== */}
                 {step === 'interview' && currentInterview && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                        {/* Webcam + Info */}
-                        <div className="space-y-4">
-                            <div className="bg-gray-900 rounded-xl overflow-hidden aspect-video">
-                                <video
-                                    ref={videoRef}
-                                    autoPlay
-                                    muted
-                                    className="w-full h-full object-cover"
-                                />
-                            </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="space-y-4">
+            <div className="bg-gray-900 rounded-xl overflow-hidden aspect-video">
+                <video
+                    key="interview-video"
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    controls={false}
+                    className="w-full h-full object-cover"
+                />
+            </div>
 
                             {/* Timer */}
                             <div className={`text-center p-3 rounded-xl font-bold text-lg ${
