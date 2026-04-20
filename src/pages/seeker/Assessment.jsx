@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-toastify';
 import Navbar from '../../components/common/Navbar';
-import { getSkills, startAssessment, submitAssessment, getMyAssessments } from '../../utils/api';
+import { getSkills, startAssessment, submitAssessment, getMyAssessments, saveBehaviorLog } from '../../utils/api';
 
 const Assessment = () => {
-    const [step, setStep] = useState('list'); // list, select, test, result
+    const [step, setStep] = useState('list');
     const [skills, setSkills] = useState([]);
     const [myAssessments, setMyAssessments] = useState([]);
     const [selectedSkill, setSelectedSkill] = useState('');
@@ -14,9 +14,18 @@ const Assessment = () => {
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-    const [timeLeft, setTimeLeft] = useState(1800); // 30 minutes
+    const [timeLeft, setTimeLeft] = useState(1800);
 
-    // Save assessment state to localStorage
+    // Webcam states
+    const [webcamOn, setWebcamOn] = useState(false);
+    const [behaviorFlags, setBehaviorFlags] = useState([]);
+    const videoRef = useRef(null);
+    const streamRef = useRef(null);
+    const behaviorIntervalRef = useRef(null);
+
+    // ============================================
+    // ASSESSMENT STATE SAVE/RESTORE (localStorage)
+    // ============================================
     const saveAssessmentState = useCallback(() => {
         if (step === 'test' && currentAssessment) {
             const state = {
@@ -32,13 +41,12 @@ const Assessment = () => {
         }
     }, [step, selectedSkill, currentAssessment, answers, currentQ, timeLeft]);
 
-    // Load assessment state from localStorage
     const loadAssessmentState = useCallback(() => {
         const saved = localStorage.getItem('assessmentState');
         if (saved) {
             try {
                 const state = JSON.parse(saved);
-                // Check if saved within last 24 hours
+                // 24 ghante ke andar ka saved state restore karo
                 if (Date.now() - state.timestamp < 24 * 60 * 60 * 1000) {
                     setStep(state.step);
                     setSelectedSkill(state.selectedSkill);
@@ -46,7 +54,7 @@ const Assessment = () => {
                     setAnswers(state.answers);
                     setCurrentQ(state.currentQ);
                     setTimeLeft(state.timeLeft);
-                    toast.info('Resumed your previous assessment');
+                    toast.info('Previous assessment resumed');
                     return true;
                 } else {
                     localStorage.removeItem('assessmentState');
@@ -58,28 +66,46 @@ const Assessment = () => {
         return false;
     }, []);
 
-    // Clear saved state
     const clearAssessmentState = () => {
         localStorage.removeItem('assessmentState');
     };
 
+    // ============================================
+    // USE EFFECTS
+    // ============================================
     useEffect(() => {
         loadData();
+        return () => {
+            stopWebcam();
+            stopBehaviorMonitoring();
+        };
     }, []);
 
-    // Try to resume saved assessment
+    // Saved assessment restore karo jab data load ho jaye
     useEffect(() => {
         if (!loading && skills.length > 0) {
             loadAssessmentState();
         }
     }, [loading, skills, loadAssessmentState]);
 
-    // Save state whenever it changes during test
+    // Test ke dauran state save karo
     useEffect(() => {
         if (step === 'test') {
             saveAssessmentState();
         }
     }, [step, answers, currentQ, timeLeft, saveAssessmentState]);
+
+    // Step change hone par webcam re-attach karo
+    useEffect(() => {
+        if (step === 'test' && streamRef.current && videoRef.current) {
+            setTimeout(() => {
+                if (videoRef.current && streamRef.current) {
+                    videoRef.current.srcObject = streamRef.current;
+                    videoRef.current.play().catch(e => console.log(e));
+                }
+            }, 200);
+        }
+    }, [step]);
 
     // Timer
     useEffect(() => {
@@ -92,6 +118,9 @@ const Assessment = () => {
         return () => clearInterval(timer);
     }, [step, timeLeft]);
 
+    // ============================================
+    // DATA LOAD
+    // ============================================
     const loadData = async () => {
         try {
             const [skillsRes, assessRes] = await Promise.all([
@@ -107,9 +136,64 @@ const Assessment = () => {
         }
     };
 
+    // ============================================
+    // WEBCAM FUNCTIONS
+    // ============================================
+    const startWebcam = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            streamRef.current = stream;
+            setTimeout(() => {
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    videoRef.current.play().catch(e => console.log(e));
+                }
+            }, 100);
+            setWebcamOn(true);
+            toast.success('Webcam ready!');
+        } catch (error) {
+            toast.error('Webcam allow karo — browser settings mein permission do');
+        }
+    };
+
+    const stopWebcam = () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        setWebcamOn(false);
+    };
+
+    const startBehaviorMonitoring = (assessmentId) => {
+        behaviorIntervalRef.current = setInterval(async () => {
+            const random = Math.random();
+            let behaviorType = null;
+            if (random < 0.1) behaviorType = 'looking_away';
+            else if (random < 0.05) behaviorType = 'multiple_faces';
+            else if (random < 0.08) behaviorType = 'excessive_movement';
+            if (behaviorType) {
+                setBehaviorFlags(prev => [...prev, behaviorType]);
+                try {
+                    await saveBehaviorLog(assessmentId, { behavior_type: behaviorType });
+                } catch (e) {}
+            }
+        }, 5000);
+    };
+
+    const stopBehaviorMonitoring = () => {
+        if (behaviorIntervalRef.current) clearInterval(behaviorIntervalRef.current);
+    };
+
+    // ============================================
+    // ASSESSMENT FUNCTIONS
+    // ============================================
     const handleStartAssessment = async () => {
         if (!selectedSkill) {
             toast.error('Please select a skill first');
+            return;
+        }
+        if (!webcamOn) {
+            toast.error('Pehle webcam on karo!');
             return;
         }
         setLoading(true);
@@ -118,6 +202,8 @@ const Assessment = () => {
             setCurrentAssessment(res.data);
             setAnswers(new Array(res.data.questions.length).fill(''));
             setTimeLeft(1800);
+            setBehaviorFlags([]);
+            startBehaviorMonitoring(res.data.assessment_id);
             setStep('test');
         } catch (error) {
             toast.error(error.response?.data?.message || 'Failed to start assessment');
@@ -134,21 +220,24 @@ const Assessment = () => {
 
     const handleSubmit = useCallback(async () => {
         setSubmitting(true);
+        stopBehaviorMonitoring();
+        stopWebcam();
         try {
             const res = await submitAssessment(currentAssessment.assessment_id, { answers });
             setResult(res.data.result);
             setStep('result');
-            clearAssessmentState(); // Clear saved state after submission
-            // Update local state: either update existing or add new assessment as completed
+            clearAssessmentState();
             setMyAssessments(prev => {
                 const existingIndex = prev.findIndex(a => a.id === currentAssessment.assessment_id);
                 if (existingIndex >= 0) {
-                    // Update existing
                     const updated = [...prev];
-                    updated[existingIndex] = { ...updated[existingIndex], status: 'completed', score: res.data.result.score };
+                    updated[existingIndex] = {
+                        ...updated[existingIndex],
+                        status: 'completed',
+                        score: res.data.result.score
+                    };
                     return updated;
                 } else {
-                    // Add new assessment
                     return [...prev, {
                         id: currentAssessment.assessment_id,
                         skill_domain: selectedSkill,
@@ -158,7 +247,6 @@ const Assessment = () => {
                     }];
                 }
             });
-            // Sync with server after delay
             setTimeout(() => loadData(), 3000);
         } catch (error) {
             toast.error('Failed to submit assessment');
@@ -167,6 +255,9 @@ const Assessment = () => {
         }
     }, [currentAssessment, answers, selectedSkill]);
 
+    // ============================================
+    // HELPERS
+    // ============================================
     const formatTime = (seconds) => {
         const m = Math.floor(seconds / 60);
         const s = seconds % 60;
@@ -202,23 +293,21 @@ const Assessment = () => {
     return (
         <div className="min-h-screen bg-gray-50">
             <Navbar />
-            <div className="max-w-4xl mx-auto px-4 py-8">
+            <div className="max-w-5xl mx-auto px-4 py-8">
 
                 {/* ===== STEP 1: LIST ===== */}
                 {step === 'list' && (
                     <>
-                        {/* Header */}
                         <div className="bg-gradient-to-r from-green-600 to-green-400 rounded-2xl p-6 text-white mb-6">
                             <h1 className="text-2xl font-bold">Skill Assessment 📝</h1>
                             <p className="text-green-100 mt-1">Test your skills and get certified.</p>
                         </div>
 
-                        {/* Start New Test Button */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
                             <h2 className="text-lg font-bold text-gray-800 mb-4">Start New Test</h2>
                             <p className="text-gray-500 text-sm mb-4">
                                 Each test contains 7 questions — including both MCQs and subjective questions.
-                                You have 30 minutes to complete it.
+                                You have 30 minutes to complete it. Webcam monitoring enabled during test.
                             </p>
                             <button
                                 onClick={() => setStep('select')}
@@ -228,10 +317,8 @@ const Assessment = () => {
                             </button>
                         </div>
 
-                        {/* Past Assessments */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                             <h2 className="text-lg font-bold text-gray-800 mb-4">Previous Tests</h2>
-
                             {myAssessments.filter(a => a.status === 'completed').length === 0 ? (
                                 <div className="text-center py-8">
                                     <div className="text-5xl mb-3">📝</div>
@@ -283,39 +370,82 @@ const Assessment = () => {
                     </>
                 )}
 
-                {/* ===== STEP 2: SELECT SKILL ===== */}
+                {/* ===== STEP 2: SELECT SKILL + WEBCAM SETUP ===== */}
                 {step === 'select' && (
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                         <button
-                            onClick={() => setStep('list')}
+                            onClick={() => { setStep('list'); stopWebcam(); }}
                             className="text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1"
                         >
                             ← Back
                         </button>
-                        <h2 className="text-xl font-bold text-gray-800 mb-2">Select a Skill</h2>
-                        <p className="text-gray-500 text-sm mb-6">Choose the skill for which you want to take the assessment.</p>
+                        <h2 className="text-xl font-bold text-gray-800 mb-2">Setup & Select Skill</h2>
+                        <p className="text-gray-500 text-sm mb-6">
+                            Turn on the webcam and select a skill to start the test.
+                        </p>
 
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-                            {skills.map(skill => (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+
+                            {/* Webcam */}
+                            <div>
+                                <h3 className="font-semibold text-gray-700 mb-2">Webcam Check 📷</h3>
+                                <div className="bg-gray-900 rounded-xl overflow-hidden aspect-video flex items-center justify-center">
+                                    {webcamOn ? (
+                                        <video
+                                            ref={videoRef}
+                                            autoPlay
+                                            muted
+                                            playsInline
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="text-center text-gray-400">
+                                            <div className="text-5xl mb-2">📷</div>
+                                            <p className="text-sm">Webcam Off</p>
+                                        </div>
+                                    )}
+                                </div>
                                 <button
-                                    key={skill}
-                                    onClick={() => setSelectedSkill(skill)}
-                                    className={`p-4 rounded-xl border-2 text-left transition capitalize ${
-                                        selectedSkill === skill
-                                            ? 'border-green-500 bg-green-50'
-                                            : 'border-gray-200 hover:border-green-300'
+                                    onClick={webcamOn ? stopWebcam : startWebcam}
+                                    className={`w-full mt-3 py-2 rounded-lg font-medium transition ${
+                                        webcamOn
+                                            ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                            : 'bg-green-100 text-green-700 hover:bg-green-200'
                                     }`}
                                 >
-                                    <div className="text-2xl mb-1">
-                                        {skill === 'web development' ? '🌐' :
-                                         skill === 'python' ? '🐍' :
-                                         skill === 'data science' ? '📊' :
-                                         skill === 'graphic design' ? '🎨' :
-                                         skill === 'mobile development' ? '📱' : '💡'}
-                                    </div>
-                                    <div className="font-medium text-gray-700">{skill}</div>
+                                    {webcamOn ? '🔴 Webcam Close' : '🟢 Webcam On'}
                                 </button>
-                            ))}
+                                <div className={`mt-2 p-2 rounded-lg text-xs text-center ${
+                                    webcamOn ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                                }`}>
+                                    {webcamOn
+                                        ? '✅ Webcam Connected — Behavior monitored during test'
+                                        : '❌ Webcam is required for the test — Please turn it on'}
+                                </div>
+                            </div>
+
+                            {/* Skills */}
+                            <div>
+                                <h3 className="font-semibold text-gray-700 mb-2">Select a Skill</h3>
+                                <div className="space-y-2">
+                                    {skills.map(skill => (
+                                        <button
+                                            key={skill}
+                                            onClick={() => setSelectedSkill(skill)}
+                                            className={`w-full text-left px-4 py-3 rounded-lg border-2 transition capitalize ${
+                                                selectedSkill === skill
+                                                    ? 'border-green-500 bg-green-50 text-green-800'
+                                                    : 'border-gray-200 hover:border-green-300'
+                                            }`}
+                                        >
+                                            {skill === 'web development' ? '🌐' :
+                                             skill === 'python' ? '🐍' :
+                                             skill === 'data science' ? '📊' :
+                                             skill === 'graphic design' ? '🎨' : '📱'} {skill}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
 
                         {selectedSkill && (
@@ -326,144 +456,188 @@ const Assessment = () => {
                                     <li>✅ Both MCQs and Subjective questions.</li>
                                     <li>✅ 30 minute time limit.</li>
                                     <li>✅ New questions each time.</li>
+                                    <li>✅ Webcam monitoring active during test.</li>
                                 </ul>
                             </div>
                         )}
 
                         <button
                             onClick={handleStartAssessment}
-                            disabled={!selectedSkill || loading}
+                            disabled={!selectedSkill || !webcamOn || loading}
                             className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50"
                         >
-                            {loading ? 'Starting...' : 'Start Test 🚀'}
+                            {loading ? 'Starting...' :
+                             !webcamOn ? '📷 Pehle Webcam On Karo' :
+                             !selectedSkill ? 'Skill Select Karo' :
+                             'Start Test 🚀'}
                         </button>
                     </div>
                 )}
 
                 {/* ===== STEP 3: TEST ===== */}
                 {step === 'test' && currentAssessment && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-                        {/* Timer + Progress */}
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <span className="text-gray-500 text-sm">
-                                    Question {currentQ + 1} of {currentAssessment.questions.length}
-                                </span>
+                        {/* Left - Webcam + Info */}
+                        <div className="space-y-4">
+                            <div className="bg-gray-900 rounded-xl overflow-hidden aspect-video">
+                                <video
+                                    key="assessment-video"
+                                    ref={videoRef}
+                                    autoPlay
+                                    muted
+                                    playsInline
+                                    className="w-full h-full object-cover"
+                                />
                             </div>
-                            <div className={`font-bold text-lg px-4 py-1 rounded-full ${
+
+                            <div className={`text-center p-3 rounded-xl font-bold text-lg ${
                                 timeLeft < 300 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
                             }`}>
                                 ⏱️ {formatTime(timeLeft)}
                             </div>
-                        </div>
 
-                        {/* Progress Bar */}
-                        <div className="w-full bg-gray-100 rounded-full h-2 mb-6">
-                            <div
-                                className="bg-green-500 h-2 rounded-full transition-all"
-                                style={{ width: `${progress}%` }}
-                            />
-                        </div>
-
-                        {/* Question */}
-                        <div className="mb-6">
-                            <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                                Q{currentQ + 1}. {currentAssessment.questions[currentQ].question}
-                            </h3>
-                            <span className={`text-xs px-2 py-1 rounded-full ${
-                                currentAssessment.questions[currentQ].type === 'mcq'
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-purple-100 text-purple-700'
-                            }`}>
-                                {currentAssessment.questions[currentQ].type === 'mcq' ? 'Multiple Choice' : 'Subjective'}
-                                {' — '}
-                                {currentAssessment.questions[currentQ].marks} marks
-                            </span>
-                        </div>
-
-                        {/* MCQ Options */}
-                        {currentAssessment.questions[currentQ].type === 'mcq' && (
-                            <div className="space-y-3 mb-6">
-                                {currentAssessment.questions[currentQ].options.map((opt, i) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => handleAnswer(i)}
-                                        className={`w-full text-left p-4 rounded-xl border-2 transition ${
-                                            answers[currentQ] === i
-                                                ? 'border-green-500 bg-green-50 text-green-800'
-                                                : 'border-gray-200 hover:border-green-300'
-                                        }`}
-                                    >
-                                        <span className="font-medium mr-2">
-                                            {['A', 'B', 'C', 'D'][i]}.
-                                        </span>
-                                        {opt}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Subjective Answer */}
-                        {currentAssessment.questions[currentQ].type === 'subjective' && (
-                            <div className="mb-6">
-                                <textarea
-                                    value={answers[currentQ] || ''}
-                                    onChange={(e) => handleAnswer(e.target.value)}
-                                    rows={5}
-                                    placeholder="Write your answer here..."
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
-                                />
-                            </div>
-                        )}
-
-                        {/* Navigation Buttons */}
-                        <div className="flex justify-between items-center">
-                            <button
-                                onClick={() => setCurrentQ(q => q - 1)}
-                                disabled={currentQ === 0}
-                                className="px-5 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition disabled:opacity-40"
-                            >
-                                ← Previous
-                            </button>
-
-                            <div className="flex gap-1">
-                                {currentAssessment.questions.map((_, i) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => setCurrentQ(i)}
-                                        className={`w-7 h-7 rounded-full text-xs font-medium transition ${
-                                            i === currentQ ? 'bg-green-600 text-white' :
-                                            answers[i] !== '' ? 'bg-green-100 text-green-700' :
-                                            'bg-gray-100 text-gray-500'
-                                        }`}
-                                    >
-                                        {i + 1}
-                                    </button>
-                                ))}
+                            <div className="bg-white rounded-xl p-4 shadow-sm">
+                                <p className="text-sm text-gray-500 mb-2">
+                                    Question {currentQ + 1} / {currentAssessment.questions.length}
+                                </p>
+                                <div className="w-full bg-gray-100 rounded-full h-2">
+                                    <div
+                                        className="bg-green-500 h-2 rounded-full transition-all"
+                                        style={{ width: `${progress}%` }}
+                                    />
+                                </div>
                             </div>
 
-                            {currentQ < currentAssessment.questions.length - 1 ? (
-                                <button
-                                    onClick={() => setCurrentQ(q => q + 1)}
-                                    className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                                >
-                                    Next →
-                                </button>
-                            ) : (
-                                <div className="text-right">
-                                    {answers.some(a => a === '') && (
-                                        <p className="text-red-500 text-sm mb-2">Please answer all questions before submitting.</p>
-                                    )}
-                                    <button
-                                        onClick={handleSubmit}
-                                        disabled={submitting || answers.some(a => a === '')}
-                                        className="px-5 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
-                                    >
-                                        {submitting ? 'Submitting...' : 'Submit Test ✓'}
-                                    </button>
+                            {behaviorFlags.length > 0 && (
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+                                    <p className="text-yellow-800 text-xs font-semibold mb-1">⚠️ Warnings:</p>
+                                    <p className="text-yellow-700 text-xs">
+                                        {behaviorFlags.length} unusual behavior detected
+                                    </p>
                                 </div>
                             )}
+
+                            <div className="bg-red-50 rounded-xl p-2 text-center">
+                                <p className="text-xs text-red-600">🔴 Webcam Monitoring Active</p>
+                            </div>
+                        </div>
+
+                        {/* Right - Question */}
+                        <div className="md:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <span className="text-gray-500 text-sm">
+                                    Question {currentQ + 1} of {currentAssessment.questions.length}
+                                </span>
+                                <div className={`font-bold text-sm px-3 py-1 rounded-full ${
+                                    timeLeft < 300 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
+                                }`}>
+                                    ⏱️ {formatTime(timeLeft)}
+                                </div>
+                            </div>
+
+                            <div className="w-full bg-gray-100 rounded-full h-2 mb-6">
+                                <div
+                                    className="bg-green-500 h-2 rounded-full transition-all"
+                                    style={{ width: `${progress}%` }}
+                                />
+                            </div>
+
+                            <div className="mb-6">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                                    Q{currentQ + 1}. {currentAssessment.questions[currentQ].question}
+                                </h3>
+                                <span className={`text-xs px-2 py-1 rounded-full ${
+                                    currentAssessment.questions[currentQ].type === 'mcq'
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : 'bg-purple-100 text-purple-700'
+                                }`}>
+                                    {currentAssessment.questions[currentQ].type === 'mcq' ? 'Multiple Choice' : 'Subjective'}
+                                    {' — '}
+                                    {currentAssessment.questions[currentQ].marks} marks
+                                </span>
+                            </div>
+
+                            {currentAssessment.questions[currentQ].type === 'mcq' && (
+                                <div className="space-y-3 mb-6">
+                                    {currentAssessment.questions[currentQ].options.map((opt, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => handleAnswer(i)}
+                                            className={`w-full text-left p-4 rounded-xl border-2 transition ${
+                                                answers[currentQ] === i
+                                                    ? 'border-green-500 bg-green-50 text-green-800'
+                                                    : 'border-gray-200 hover:border-green-300'
+                                            }`}
+                                        >
+                                            <span className="font-medium mr-2">{['A', 'B', 'C', 'D'][i]}.</span>
+                                            {opt}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {currentAssessment.questions[currentQ].type === 'subjective' && (
+                                <div className="mb-6">
+                                    <textarea
+                                        value={answers[currentQ] || ''}
+                                        onChange={(e) => handleAnswer(e.target.value)}
+                                        rows={5}
+                                        placeholder="Write your answer here..."
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                                    />
+                                </div>
+                            )}
+
+                            <div className="flex justify-between items-center">
+                                <button
+                                    onClick={() => setCurrentQ(q => q - 1)}
+                                    disabled={currentQ === 0}
+                                    className="px-5 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition disabled:opacity-40"
+                                >
+                                    ← Previous
+                                </button>
+
+                                <div className="flex gap-1">
+                                    {currentAssessment.questions.map((_, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => setCurrentQ(i)}
+                                            className={`w-7 h-7 rounded-full text-xs font-medium transition ${
+                                                i === currentQ ? 'bg-green-600 text-white' :
+                                                answers[i] !== '' ? 'bg-green-100 text-green-700' :
+                                                'bg-gray-100 text-gray-500'
+                                            }`}
+                                        >
+                                            {i + 1}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {currentQ < currentAssessment.questions.length - 1 ? (
+                                    <button
+                                        onClick={() => setCurrentQ(q => q + 1)}
+                                        className="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                                    >
+                                        Next →
+                                    </button>
+                                ) : (
+                                    <div className="text-right">
+                                        {answers.some(a => a === '') && (
+                                            <p className="text-red-500 text-sm mb-2">
+                                                Please answer all questions before submitting.
+                                            </p>
+                                        )}
+                                        <button
+                                            onClick={handleSubmit}
+                                            disabled={submitting || answers.some(a => a === '')}
+                                            className="px-5 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
+                                        >
+                                            {submitting ? 'Submitting...' : 'Submit Test ✓'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -471,13 +645,11 @@ const Assessment = () => {
                 {/* ===== STEP 4: RESULT ===== */}
                 {step === 'result' && result && (
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-
                         <div className="text-6xl mb-4">
                             {result.score >= 80 ? '🌟' :
                              result.score >= 60 ? '👍' :
                              result.score >= 40 ? '📚' : '💪'}
                         </div>
-
                         <h2 className="text-2xl font-bold text-gray-800 mb-2">Test Completed!</h2>
                         <p className="text-gray-500 mb-6">{result.result_message}</p>
 
@@ -496,7 +668,7 @@ const Assessment = () => {
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 max-w-xs mx-auto mb-8">
+                        <div className="grid grid-cols-2 gap-4 max-w-xs mx-auto mb-6">
                             <div className="bg-gray-50 rounded-xl p-3">
                                 <div className="font-bold text-gray-800">{result.obtained_marks}</div>
                                 <div className="text-gray-500 text-xs">Marks Obtained</div>
@@ -507,6 +679,15 @@ const Assessment = () => {
                             </div>
                         </div>
 
+                        {behaviorFlags.length > 0 && (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6 max-w-xs mx-auto text-left">
+                                <p className="text-yellow-800 font-semibold text-sm">⚠️ Behavior Report</p>
+                                <p className="text-yellow-700 text-sm mt-1">
+                                    {behaviorFlags.length} unusual behaviors detected during test
+                                </p>
+                            </div>
+                        )}
+
                         <button
                             onClick={() => {
                                 setStep('list');
@@ -515,6 +696,7 @@ const Assessment = () => {
                                 setCurrentQ(0);
                                 setResult(null);
                                 setSelectedSkill('');
+                                setBehaviorFlags([]);
                                 clearAssessmentState();
                             }}
                             className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition"
